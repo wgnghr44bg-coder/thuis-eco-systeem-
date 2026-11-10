@@ -32,6 +32,9 @@ jobs:
       - name: Tests
         run: python -m unittest
 
+      - name: Growatt-koppeling installeren
+        run: pip install --quiet "growattServer>=1.5,<2"
+
       - name: Plan maken
         env:
           # Optioneel: als Home Assistant via internet bereikbaar is (bv. Nabu
@@ -39,6 +42,11 @@ jobs:
           # planner leest dan de echte batterijlading.
           HA_URL: ${{ secrets.HA_URL }}
           HA_TOKEN: ${{ secrets.HA_TOKEN }}
+          # Inlog van de Growatt-app, als repository secrets (zie README).
+          # Zonder deze secrets toont de site alleen het plan.
+          GROWATT_USERNAME: ${{ secrets.GROWATT_USERNAME }}
+          GROWATT_PASSWORD: ${{ secrets.GROWATT_PASSWORD }}
+          GROWATT_TOKEN: ${{ secrets.GROWATT_TOKEN }}
         run: |
           mkdir -p _site
           cp website/index.html _site/

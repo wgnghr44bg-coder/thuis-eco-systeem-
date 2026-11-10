@@ -156,7 +156,20 @@ Jullie eigen instellingen: zet een `config.toml` in de repo (zonder tokens,
 alleen een globale locatie). Zonder dat bestand gebruikt de site
 `config.voorbeeld.toml`.
 
-**Echte batterijlading tonen (optioneel).** Is Home Assistant via internet
+**Echte meetwaarden uit de apps.** De website kan elk uur de echte gegevens
+uit de Growatt-app ophalen (zonne-opbrengst nu en vandaag). Voeg daarvoor onder
+*Settings → Secrets and variables → Actions → New repository secret* toe:
+
+| Secret             | Waarde                                     |
+|--------------------|--------------------------------------------|
+| `GROWATT_USERNAME` | gebruikersnaam van de Growatt/ShinePhone-app |
+| `GROWATT_PASSWORD` | wachtwoord van die app                     |
+
+Secrets zijn versleuteld: niemand kan ze terugzien, ook niet in de logboeken.
+Het uitlezen van de Anker-batterij is voorbereid (`energieplanner/metingen.py`)
+maar staat nog niet aan in de workflow; zie de PR-beschrijving.
+
+**Echte batterijlading tonen via Home Assistant (optioneel).** Is Home Assistant via internet
 bereikbaar (bv. met Nabu Casa), voeg dan onder *Settings → Secrets and variables
 → Actions* twee secrets toe: `HA_URL` en `HA_TOKEN`. Het plan start dan vanaf de
 echte lading in plaats van 50%.

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,7 @@ from pathlib import Path
 from . import bronnen
 from .config import Config, laad_config
 from .homeassistant import lees_soc, stuur
+from .metingen import lees_alles
 from .planner import Plan, maak_plan, plan_naar_dict
 
 MODUS_SYMBOOL = {"laden_net": "⬆ laden", "ontladen_net": "⬇ ontladen",
@@ -58,6 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--uitvoer", default="site/plan.json", help="bestand voor de json-opdracht")
     p.add_argument("--droog", action="store_true", help="toon wat naar Home Assistant zou gaan, zonder te sturen")
     args = p.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     pad = Path(args.config)
     if not pad.exists():
@@ -78,7 +81,10 @@ def main(argv: list[str] | None = None) -> int:
         print("Geen prijzen beschikbaar.", file=sys.stderr)
         return 1
 
+    metingen = lees_alles() if args.opdracht == "json" and not args.demo else None
     soc, soc_bron = args.soc, "opgegeven"
+    if soc is None and metingen and metingen["anker"].get("soc") is not None:
+        soc, soc_bron = metingen["anker"]["soc"], "anker"
     if soc is None:
         soc = lees_soc(cfg)
         soc_bron = "home_assistant" if soc is not None else "aanname"
@@ -89,6 +95,11 @@ def main(argv: list[str] | None = None) -> int:
         toon(plan)
     elif args.opdracht == "json":
         data = plan_naar_dict(cfg, plan, bron=bron, soc_bron=soc_bron)
+        data["metingen"] = metingen
+        if metingen:
+            for naam in ("growatt", "anker"):
+                m = metingen[naam]
+                print(f"{naam}: {m['status']}" + (f" – {m['fout']}" if m.get("fout") else ""))
         os.makedirs(os.path.dirname(args.uitvoer) or ".", exist_ok=True)
         with open(args.uitvoer, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=1)
