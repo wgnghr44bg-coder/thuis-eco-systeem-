@@ -20,8 +20,15 @@ class TestTarieven(unittest.TestCase):
 
     def test_saldering_stopt_in_2027(self):
         t = Tarieven()
-        self.assertAlmostEqual(t.stroom_teruglever(0.10, date(2026, 12, 31)), t.stroom_allin(0.10))
         self.assertAlmostEqual(t.stroom_teruglever(0.10, date(2027, 1, 1)), 0.10)
+
+    def test_teruglevering_zonneplan(self):
+        # Koop- en verkoopprijs uit de Anker-app, 10-11-2026 10:15
+        t = Tarieven(inkoop_opslag=0.01653, energiebelasting=0.09161, btw=0.21, teruglever_kosten=0.02)
+        kaal = 0.51947 / 1.21 - 0.01653 - 0.09161
+        self.assertAlmostEqual(t.stroom_allin(kaal), 0.51947, places=4)
+        self.assertAlmostEqual(t.stroom_teruglever(kaal, date(2026, 11, 10)), 0.47609, delta=0.002)
+        self.assertAlmostEqual(t.stroom_teruglever(kaal, date(2027, 1, 1)), kaal - 0.02)
 
 
 class TestWarmte(unittest.TestCase):

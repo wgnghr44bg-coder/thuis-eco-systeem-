@@ -18,9 +18,9 @@ inkoop_opslag = 0.01653       # Zonneplan inkoopvergoeding, excl. btw (nov 2026)
 energiebelasting = 0.09161    # €/kWh excl. btw (2026, bevestigd door Zonneplan)
 btw = 0.21
 saldering_tot = "2027-01-01"  # salderingsregeling stopt per 2027
-# Na saldering: marktprijs + €0,02 inkoopvergoeding, geen terugleverkosten.
-# Negatieve "kosten" = vergoeding bovenop de marktprijs.
-teruglever_kosten = -0.02
+# Zonneplan houdt €0,02 per kWh in op teruglevering (gecontroleerd met de
+# koop- en verkoopprijs in de Anker-app).
+teruglever_kosten = 0.02
 gasprijs = 1.35               # terugvalwaarde €/m³ all-in
 gas_opslag = 0.08             # Zonneplan inkoopvergoeding gas per m³; gasdag loopt 06:00–06:00
 gas_energiebelasting = 0.58
