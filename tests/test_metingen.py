@@ -39,6 +39,24 @@ class TestGrowatt(unittest.TestCase):
             r = metingen.lees_growatt()
         self.assertEqual(r, {"status": "ok", "zon_kw": 1.25, "zon_vandaag_kwh": 4.3})
 
+    def test_api_token(self):
+        nep = types.ModuleType("growattServer")
+
+        class OpenApi:
+            def __init__(self, token): assert token == "tok"
+            def plant_list(self): return {"plants": [{"plant_id": 42}]}
+            def plant_energy_overview(self, pid):
+                assert pid == 42
+                return {"current_power": 840, "today_energy": "2.3"}
+
+        nep.OpenApiV1 = OpenApi
+        with mock.patch.dict(sys.modules, {"growattServer": nep}), \
+             mock.patch.dict(os.environ, {"GROWATT_TOKEN": "tok"}, clear=True):
+            r = metingen.lees_growatt()
+        self.assertEqual(r["status"], "ok")
+        self.assertAlmostEqual(r["zon_kw"], 0.84)
+        self.assertAlmostEqual(r["zon_vandaag_kwh"], 2.3)
+
     def test_fout_lekt_geen_wachtwoord(self):
         nep = types.ModuleType("growattServer")
 

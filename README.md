@@ -162,8 +162,11 @@ uit de Growatt-app ophalen (zonne-opbrengst nu en vandaag). Voeg daarvoor onder
 
 | Secret             | Waarde                                     |
 |--------------------|--------------------------------------------|
-| `GROWATT_USERNAME` | gebruikersnaam van de Growatt/ShinePhone-app |
-| `GROWATT_PASSWORD` | wachtwoord van die app                     |
+| `GROWATT_TOKEN`    | API-token uit de Growatt-app (aanbevolen)  |
+
+Of, zonder token: `GROWATT_USERNAME` en `GROWATT_PASSWORD` (inlog van de app).
+Een token is veiliger: het geeft alleen toegang tot de gegevens en is los in te
+trekken, zonder je wachtwoord te wijzigen.
 
 Secrets zijn versleuteld: niemand kan ze terugzien, ook niet in de logboeken.
 Het uitlezen van de Anker-batterij is voorbereid (`energieplanner/metingen.py`)
