@@ -1,0 +1,75 @@
+# Energieplanner – configuratie
+# Kopieer dit bestand naar `config.toml` en vul jullie eigen gegevens in.
+# Alle bedragen in euro, energie in kWh, vermogen in kW.
+
+[locatie]
+# Voor weersverwachting (temperatuur + zonnestraling). Ongeveer is prima.
+breedtegraad = 52.1
+lengtegraad = 5.1
+tijdzone = "Europe/Amsterdam"
+
+[tarieven]
+# Dynamisch contract: all-in prijs = (kale uurprijs + inkoopopslag + energiebelasting) × (1 + btw)
+inkoop_opslag = 0.02          # €/kWh excl. btw – staat in je contract
+energiebelasting = 0.0916     # €/kWh excl. btw – controleer het actuele tarief
+btw = 0.21
+# Saldering stopt per 1 januari 2027. Zolang saldering geldt is teruggeleverde
+# stroom (tot je eigen verbruik) evenveel waard als ingekochte stroom.
+saldering_tot = "2027-01-01"
+teruglever_kosten = 0.0       # €/kWh die de leverancier inhoudt op teruglevering (na saldering)
+# Gas: dynamische dagprijs wordt opgehaald; dit is de terugvalwaarde (all-in, €/m³)
+gasprijs = 1.35
+gas_opslag = 0.05             # €/m³ excl. btw bovenop de kale dagprijs
+gas_energiebelasting = 0.58   # €/m³ excl. btw – controleer het actuele tarief
+
+[batterij]
+capaciteit_kwh = 5.0
+max_laadvermogen_kw = 2.5
+max_ontlaadvermogen_kw = 2.5
+rendement_rondgang = 0.90     # laden + ontladen samen
+min_soc = 0.10                # niet dieper ontladen dan 10% (goed voor levensduur)
+max_soc = 0.95                # niet voller dan 95% (goed voor levensduur)
+# Slijtagekosten per kWh ontladen. Zorgt dat de batterij alleen cyclet als het
+# echt iets oplevert. Vuistregel: aanschafprijs / (capaciteit × aantal cycli).
+slijtage_eur_per_kwh = 0.03
+
+[zonnepanelen]
+vermogen_kwp = 1.5            # totaal piekvermogen (bv. 4 panelen × 375 Wp)
+prestatieratio = 0.80         # verliezen door omvormer, oriëntatie, schaduw
+
+[huis]
+basisverbruik_kw = 0.35       # gemiddeld verbruik zonder verwarming/koeling
+warmteverlies_w_per_k = 180   # W per graad verschil binnen/buiten (schatting, zie README)
+dagtemperatuur = 20.0
+nachttemperatuur = 17.0
+nacht_van = 23                # uur
+nacht_tot = 7                 # uur
+comfort_marge = 1.0           # max. graden boven/onder setpoint voor voorverwarmen/besparen
+koelen_vanaf = 25.0           # buitentemperatuur waarboven airco's koelen
+koel_temperatuur = 24.0
+
+[cv]
+ketelrendement = 0.90         # HR-ketel op ~90% (bovenwaarde)
+thermostaat_entity = "climate.cv_thermostaat"
+# Hoeveel graden de CV-thermostaat lager gaat als de airco's goedkoper verwarmen.
+verlaging_bij_airco = 1.5
+
+[[airco]]
+naam = "Woonkamer"
+entity = "climate.airco_woonkamer"
+max_warmte_kw = 3.5
+cop_7c = 4.0                  # rendement (COP) bij 7 °C buiten – zie datasheet (SCOP is een goede schatting)
+dekking = 0.45                # deel van de totale warmtevraag dat deze airco kan leveren
+
+[[airco]]
+naam = "Slaapkamer"
+entity = "climate.airco_slaapkamer"
+max_warmte_kw = 2.5
+cop_7c = 4.0
+dekking = 0.15
+
+[homeassistant]
+url = "http://homeassistant.local:8123"
+token_env = "HA_TOKEN"        # long-lived access token staat in deze omgevingsvariabele
+batterij_modus_entity = "input_select.batterij_modus"
+plan_sensor = "sensor.energieplan"
