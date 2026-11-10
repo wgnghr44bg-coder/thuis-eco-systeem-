@@ -2,7 +2,15 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Energieplan">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
 <title>Energieplan thuis</title>
 <meta name="description" content="Wat de energieplanner in huis doet: stroomprijs, airco of CV, en de thuisbatterij per uur.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M13 2 4 14h7l-1 8 9-12h-7z' fill='%232a78d6'/%3E%3C/svg%3E">
@@ -48,7 +56,12 @@ body {
   font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+main {
+  max-width: 1040px; margin: 0 auto;
+  padding: calc(24px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+           calc(48px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+}
+button.theme[disabled] { opacity: .5; }
 header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 20px; }
 h1 { font-size: 24px; line-height: 1.2; margin: 0; letter-spacing: -0.01em; }
 h2 { font-size: 16px; margin: 0 0 2px; }
@@ -125,6 +138,7 @@ button.theme { font: inherit; font-size: 12px; background: none; border: 1px sol
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <span class="chip" id="bron"><span class="dot"></span><span>—</span></span>
+      <button class="theme" id="ververs" type="button" aria-label="Plan opnieuw laden">↻ Vernieuw</button>
       <button class="theme" id="thema" type="button" aria-label="Wissel licht/donker">◐ Thema</button>
     </div>
   </header>
@@ -550,23 +564,40 @@ button.theme { font: inherit; font-size: 12px; background: none; border: 1px sol
   }
 
   async function laad() {
+    const knop = document.getElementById("ververs");
+    knop.disabled = true;
     try {
       const r = await fetch("plan.json?t=" + Date.now(), { cache: "no-store" });
       if (!r.ok) throw new Error(r.status);
       data = await r.json();
       data.uren.forEach(u => (u.t = new Date(u.tijd).getTime()));
       tekenAlles();
+      if (!navigator.onLine) {
+        const meld = document.getElementById("melding");
+        meld.hidden = false;
+        meld.textContent = "Geen internet: je ziet het laatst opgehaalde plan.";
+      }
     } catch (e) {
-      const meld = document.getElementById("melding");
-      meld.hidden = false;
-      meld.textContent = "Het plan kon niet geladen worden. Probeer het later opnieuw.";
-      document.getElementById("bijgewerkt").textContent = "Geen plan beschikbaar";
+      if (!data) {
+        const meld = document.getElementById("melding");
+        meld.hidden = false;
+        meld.textContent = "Het plan kon niet geladen worden. Probeer het later opnieuw.";
+        document.getElementById("bijgewerkt").textContent = "Geen plan beschikbaar";
+      }
+    } finally {
+      knop.disabled = false;
     }
   }
 
   let rt;
   addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(tekenAlles, 150); });
+  document.getElementById("ververs").addEventListener("click", laad);
+  // Als de app weer op de voorgrond komt (bv. na wisselen van app): meteen verversen.
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") laad(); });
   setInterval(laad, 10 * 60e3);
+  if ("serviceWorker" in navigator) {
+    addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  }
   laad();
 })();
 </script>

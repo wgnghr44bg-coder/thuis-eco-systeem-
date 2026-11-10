@@ -188,6 +188,17 @@ python3 -m energieplanner json --demo --uitvoer site/plan.json
 cd site && python3 -m http.server   # open http://localhost:8000
 ```
 
+## Als app op je telefoon
+
+De website is ook een app (PWA): zonder App Store, gratis en altijd bijgewerkt.
+
+- **iPhone:** open de site in **Safari** → deel-knop (vierkantje met pijl) →
+  **Zet op beginscherm** → **Voeg toe**.
+- **Android:** open de site in **Chrome** → menu (⋮) → **App installeren**.
+
+De app opent schermvullend, ververst als je hem opent of op **↻ Vernieuw** tikt,
+en toont zonder internet het laatst opgehaalde plan.
+
 ## Projectstructuur
 
 ```
@@ -199,6 +210,7 @@ energieplanner/
   homeassistant.py  plan doorzetten naar Home Assistant
 homeassistant/packages/energieplanner.yaml   helpers en automatiseringen
 website/index.html                             dashboard (leest plan.json)
+website/manifest.webmanifest, sw.js, icoon-*   app-installatie en offline gebruik
 .github/workflows/website.yml                  elk uur plan maken + publiceren
 tests/                                         python3 -m unittest
 ```
