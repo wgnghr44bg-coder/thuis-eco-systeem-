@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Energieplan thuis</title>
+<meta name="description" content="Wat de energieplanner in huis doet: stroomprijs, airco of CV, en de thuisbatterij per uur.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M13 2 4 14h7l-1 8 9-12h-7z' fill='%232a78d6'/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --ring: rgba(11,11,11,0.10);
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --neutral: #c3c2b7;
+  --good: #006300;
+  --warn-bg: #fff4dc;
+  --warn-ink: #6b4a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --neutral: #5a5955; --good: #0ca30c;
+    --warn-bg: #3a2c0a; --warn-ink: #f5d58a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --neutral: #5a5955; --good: #0ca30c;
+  --warn-bg: #3a2c0a; --warn-ink: #f5d58a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 20px; }
+h1 { font-size: 24px; line-height: 1.2; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 16px; margin: 0 0 2px; }
+.sub { color: var(--ink-2); font-size: 13px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--ring); color: var(--ink-2); background: var(--surface); }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+.chip.demo .dot { background: var(--s2); }
+.notice { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px; padding: 10px 14px; font-size: 14px; margin-bottom: 16px; }
+.notice[hidden] { display: none; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile, .card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; }
+.tile { padding: 14px 16px; min-width: 0; }
+.tile .label { color: var(--ink-2); font-size: 13px; }
+.tile .value { font-size: 26px; font-weight: 600; line-height: 1.25; margin-top: 2px; overflow-wrap: anywhere; }
+.tile .detail { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: 0; }
+.card { padding: 16px; margin-bottom: 16px; }
+.card .head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; margin-bottom: 10px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--ink-2); }
+.legend span { white-space: nowrap; }
+.now-text { font-size: 15px; color: var(--ink); margin: 0 0 16px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.chart .lbl { fill: var(--ink-2); font-size: 12px; }
+.tip {
+  position: absolute; pointer-events: none; z-index: 5; min-width: 190px; max-width: 260px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--ring);
+  border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.12); opacity: 0; transition: opacity .08s;
+}
+.tip.on { opacity: 1; }
+.tip b { font-weight: 600; }
+.tip .row { display: flex; justify-content: space-between; gap: 12px; }
+.tip .row span:first-child { color: var(--ink-2); }
+.tip .row span:last-child { font-variant-numeric: tabular-nums; text-align: right; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid2 .card { margin-bottom: 0; }
+details summary { cursor: pointer; font-weight: 600; }
+.tablewrap { overflow-x: auto; margin-top: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child, th.l, td.l { text-align: left; }
+th { color: var(--ink-2); font-weight: 600; }
+tr.nu td { background: color-mix(in srgb, var(--s1) 10%, transparent); }
+.uitleg { color: var(--ink-2); font-size: 14px; }
+.uitleg p { margin: 8px 0; }
+footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
+footer a { color: var(--ink-2); }
+button.theme { font: inherit; font-size: 12px; background: none; border: 1px solid var(--ring); color: var(--ink-2); border-radius: 999px; padding: 2px 10px; cursor: pointer; }
+@media (max-width: 760px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2 { grid-template-columns: 1fr; }
+  .grid2 .card { margin-bottom: 16px; }
+  .tile .value { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Energieplan thuis</h1>
+      <div class="sub" id="bijgewerkt">Laden…</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="chip" id="bron"><span class="dot"></span><span>—</span></span>
+      <button class="theme" id="thema" type="button" aria-label="Wissel licht/donker">◐ Thema</button>
+    </div>
+  </header>
+
+  <div class="notice" id="melding" hidden></div>
+
+  <section class="tiles" aria-label="Nu">
+    <div class="tile"><div class="label">Stroomprijs nu</div><div class="value" id="t-prijs">—</div><div class="detail" id="t-prijs-d"></div></div>
+    <div class="tile"><div class="label">Verwarming nu</div><div class="value" id="t-warmte">—</div><div class="detail" id="t-warmte-d"></div></div>
+    <div class="tile"><div class="label">Batterij nu</div><div class="value" id="t-bat">—</div><div class="detail" id="t-bat-d"></div></div>
+    <div class="tile"><div class="label">Verwachte besparing</div><div class="value" id="t-bes">—</div><div class="detail" id="t-bes-d"></div></div>
+  </section>
+
+  <p class="now-text" id="nu-zin"></p>
+
+  <section class="card">
+    <div class="head">
+      <div><h2>Stroomprijs per uur</h2><div class="sub">All-in, inclusief belasting en btw (€/kWh)</div></div>
+    </div>
+    <div class="chart" id="c-prijs"></div>
+  </section>
+
+  <section class="card">
+    <div class="head">
+      <div><h2>Wat het huis doet</h2><div class="sub">Per uur: welke bron verwarmt en wat de batterij doet</div></div>
+    </div>
+    <div class="chart" id="c-plan"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <div class="head"><div><h2>Batterijlading</h2><div class="sub">Gepland, in kWh</div></div></div>
+      <div class="chart" id="c-soc"></div>
+    </section>
+    <section class="card">
+      <div class="head">
+        <div><h2>Verbruik en zon</h2><div class="sub">Verwacht vermogen in kW</div></div>
+        <div class="legend"><span><i class="swatch" style="background:var(--s1)"></i>Verbruik</span><span><i class="swatch" style="background:var(--s2)"></i>Zonnepanelen</span></div>
+      </div>
+      <div class="chart" id="c-kw"></div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <details>
+      <summary>Alle uren in een tabel</summary>
+      <div class="tablewrap"><table id="tabel"></table></div>
+    </details>
+  </section>
+
+  <section class="card uitleg">
+    <h2 style="color:var(--ink)">Hoe werkt het?</h2>
+    <p><b>Airco of CV.</b> Elk uur vergelijkt de planner wat een kWh warmte kost. Een airco is een warmtepomp: met 1 kWh stroom maakt hij 3 à 4 kWh warmte. Bij normale stroomprijzen is dat ongeveer de helft van de prijs van warmte uit gas. Dan verwarmen de airco's en gaat de CV-thermostaat iets omlaag. Is stroom erg duur of vriest het hard, dan neemt de CV het over.</p>
+    <p><b>Voorverwarmen.</b> In de goedkoopste uren gaan de airco's 1 °C hoger; het huis slaat die warmte op. In de duurste uren gaan ze iets lager.</p>
+    <p><b>Batterij.</b> De planner rekent het goedkoopste laadschema uit over vandaag en morgen: laden als stroom goedkoop is of de zon schijnt, ontladen in de dure uren. De batterij blijft tussen 10% en 95% voor een lange levensduur.</p>
+    <p><b>Besparing</b> is vergeleken met "niet slim sturen": alle warmte uit de CV en de batterij slaat alleen zonnestroom op.</p>
+  </section>
+
+  <footer>
+    Prijzen: EnergyZero · Weer: Open-Meteo · Elk uur bijgewerkt door GitHub Actions.
+    <span id="voet-soc"></span>
+  </footer>
+</main>
+
+<script>
+(() => {
+  const TZ = "Europe/Amsterdam";
+  const BRON = {
+    airco:  { label: "Airco",  kleur: "var(--s1)" },
+    cv:     { label: "CV (gas)", kleur: "var(--s2)" },
+    koelen: { label: "Koelen", kleur: "var(--s3)" },
+    geen:   { label: "Geen warmte nodig", kleur: "var(--neutral)" },
+  };
+  const BAT = {
+    laden_net:      { label: "Laden uit net", kort: "Laden",      kleur: "var(--s1)" },
+    ontladen_net:   { label: "Ontladen",      kort: "Ontladen",   kleur: "var(--s2)" },
+    vasthouden:     { label: "Vasthouden",    kort: "Vasthouden", kleur: "var(--s3)" },
+    zelfconsumptie: { label: "Zelfconsumptie", kort: "Normaal",   kleur: "var(--neutral)" },
+  };
+  const fmtUur = new Intl.DateTimeFormat("nl-NL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+  const fmtDag = new Intl.DateTimeFormat("nl-NL", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" });
+  const fmtDagKort = new Intl.DateTimeFormat("nl-NL", { timeZone: TZ, weekday: "short", day: "numeric" });
+  const fmtDagUur = new Intl.DateTimeFormat("nl-NL", { timeZone: TZ, weekday: "short", hour: "2-digit", minute: "2-digit" });
+  const lokaalUur = d => Number(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", hourCycle: "h23" }).format(d));
+  const eur = (v, n = 3) => "€ " + v.toFixed(n).replace(".", ",");
+  const num = (v, n = 1) => v.toFixed(n).replace(".", ",");
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs = {}, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+
+  // Thema-knop (onthouden per browser, als dat mag)
+  const root = document.documentElement;
+  try { const t = localStorage.getItem("thema"); if (t) root.dataset.theme = t; } catch {}
+  document.getElementById("thema").addEventListener("click", () => {
+    const donker = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = donker ? "light" : "dark";
+    try { localStorage.setItem("thema", root.dataset.theme); } catch {}
+  });
+
+  let data = null;
+
+  function huidigIndex(uren) {
+    const nu = Date.now();
+    let idx = 0;
+    uren.forEach((u, i) => { if (u.t <= nu) idx = i; });
+    return idx;
+  }
+
+  function aircoTekst(u) {
+    const aan = u.aircos.filter(a => a.modus !== "off");
+    if (!aan.length) return "uit";
+    return aan.map(a => `${a.naam} ${num(a.setpoint)}°`).join(", ");
+  }
+
+  function tipHtml(u) {
+    const b = BRON[u.warmtebron] || BRON.geen, m = BAT[u.batterij_modus];
+    const rij = (k, v) => `<div class="row"><span>${k}</span><span>${v}</span></div>`;
+    return `<b>${fmtDagUur.format(u.t)}</b>` +
+      rij("Stroomprijs", eur(u.prijs) + "/kWh") +
+      rij("Buiten", num(u.buitentemp) + " °C") +
+      rij("Warmte", `<i class="swatch" style="background:${b.kleur}"></i>${b.label}`) +
+      rij("Airco's", aircoTekst(u)) +
+      rij("CV-thermostaat", num(u.cv_setpoint) + " °C") +
+      rij("Batterij", `<i class="swatch" style="background:${m.kleur}"></i>${m.kort}`) +
+      rij("Lading na dit uur", num(u.soc_kwh) + " kWh") +
+      rij("Zon", num(u.zon_kw, 2) + " kW") +
+      rij(u.net_kw >= 0 ? "Van het net" : "Terug aan net", num(Math.abs(u.net_kw), 2) + " kW");
+  }
+
+  // Gedeeld kader voor alle grafieken: zelfde x-as, zodat uren onder elkaar staan.
+  function kader(container, hoogte, opties = {}) {
+    container.innerHTML = "";
+    const W = Math.max(320, container.clientWidth);
+    const m = { l: opties.links ?? 44, r: opties.rechts ?? 12, t: 10, b: opties.onder ?? 26 };
+    const svg = el("svg", { viewBox: `0 0 ${W} ${hoogte}`, role: "img", "aria-label": opties.label || "" }, container);
+    const n = data.uren.length;
+    const bw = (W - m.l - m.r) / n;
+    const x = i => m.l + i * bw;
+    return { svg, W, H: hoogte, m, n, bw, x, binnenH: hoogte - m.t - m.b };
+  }
+
+  function tijdas(k, yLabel = k.H - 8, yLijn = k.m.t) {
+    const g = el("g", {}, k.svg);
+    const stap = k.bw < 14 ? 6 : 3;
+    const middernacht = data.uren.map((u, i) => (i > 0 && lokaalUur(u.t) === 0 ? i : -99));
+    const ruimte = Math.ceil(46 / k.bw);  // aantal uren dat het daglabel breed is
+    data.uren.forEach((u, i) => {
+      const uur = lokaalUur(u.t);
+      const teDichtbij = middernacht.some(m => Math.abs(m - i) < ruimte && m !== i);
+      if (uur === 0 && i > 0) {
+        el("line", { x1: k.x(i), x2: k.x(i), y1: yLijn, y2: yLabel - 10, stroke: "var(--axis)", "stroke-dasharray": "2 3" }, g);
+        const t = el("text", { x: k.x(i), y: yLabel, "text-anchor": "middle", class: "lbl" }, g);
+        t.textContent = fmtDagKort.format(u.t);
+      } else if (uur % stap === 0 && !teDichtbij) {
+        el("text", { x: k.x(i), y: yLabel, "text-anchor": "middle" }, g).textContent = String(uur).padStart(2, "0");
+      }
+    });
+  }
+
+  function nuLijn(k, segmenten) {
+    const i = huidigIndex(data.uren);
+    const frac = Math.min(1, Math.max(0, (Date.now() - data.uren[i].t) / 3600e3));
+    const xx = k.x(i) + frac * k.bw;
+    for (const [y1, y2] of segmenten || [[k.m.t - 4, k.H - k.m.b]])
+      el("line", { x1: xx, x2: xx, y1, y2, stroke: "var(--ink)", "stroke-width": 1.5 }, k.svg);
+  }
+
+  // Hover-laag: één doelwit per uur over de volle hoogte, met tooltip en markering.
+  function hoverLaag(k, container) {
+    const tip = document.createElement("div");
+    tip.className = "tip";
+    container.appendChild(tip);
+    const markering = el("rect", { y: k.m.t, height: k.binnenH, width: k.bw, fill: "var(--ink)", opacity: 0, "pointer-events": "none" }, k.svg);
+    const toon = (i, ev) => {
+      const u = data.uren[i];
+      markering.setAttribute("x", k.x(i));
+      markering.setAttribute("opacity", 0.06);
+      tip.innerHTML = tipHtml(u);
+      tip.classList.add("on");
+      const r = container.getBoundingClientRect();
+      const schaal = r.width / k.W;
+      let left = (k.x(i) + k.bw) * schaal + 12;
+      if (left + tip.offsetWidth > r.width) left = k.x(i) * schaal - tip.offsetWidth - 12;
+      tip.style.left = Math.max(0, left) + "px";
+      const y = ev && ev.clientY ? ev.clientY - r.top - tip.offsetHeight / 2 : 0;
+      tip.style.top = Math.max(-10, Math.min(y, r.height - tip.offsetHeight + 40)) + "px";
+    };
+    const verberg = () => { tip.classList.remove("on"); markering.setAttribute("opacity", 0); };
+    data.uren.forEach((u, i) => {
+      const r = el("rect", { x: k.x(i), y: 0, width: k.bw, height: k.H, fill: "transparent" }, k.svg);
+      r.addEventListener("pointerenter", ev => toon(i, ev));
+      r.addEventListener("pointermove", ev => toon(i, ev));
+      r.addEventListener("pointerdown", ev => toon(i, ev));
+    });
+    k.svg.addEventListener("pointerleave", verberg);
+  }
+
+  function yAs(k, max, stap, fmt) {
+    const y = v => k.m.t + k.binnenH - (v / max) * k.binnenH;
+    for (let v = 0; v <= max + 1e-9; v += stap) {
+      el("line", { x1: k.m.l, x2: k.W - k.m.r, y1: y(v), y2: y(v), stroke: v === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1 }, k.svg);
+      el("text", { x: k.m.l - 6, y: y(v) + 4, "text-anchor": "end" }, k.svg).textContent = fmt(v);
+    }
+    return y;
+  }
+
+  const decimalen = stap => (stap >= 1 ? 0 : Number.isInteger(Math.round(stap * 1e6) / 1e5) ? 1 : 2);
+
+  function mooieStap(max, doel = 4) {
+    const ruw = max / doel, mag = 10 ** Math.floor(Math.log10(ruw));
+    const s = [1, 2, 2.5, 5, 10].find(f => f * mag >= ruw) * mag;
+    return s;
+  }
+
+  function tekenPrijs() {
+    const c = document.getElementById("c-prijs");
+    const k = kader(c, 220, { label: "Staafgrafiek van de stroomprijs per uur" });
+    const maxP = Math.max(...data.uren.map(u => u.prijs));
+    const minP = Math.min(0, ...data.uren.map(u => u.prijs));
+    const stap = mooieStap(maxP);
+    const top = Math.ceil(maxP / stap) * stap;
+    const y = yAs(k, top, stap, v => num(v, decimalen(stap)));
+    const gap = Math.min(2, k.bw * 0.2);
+    const nu = huidigIndex(data.uren);
+    data.uren.forEach((u, i) => {
+      const h = Math.max(0, y(minP) - y(Math.max(u.prijs, 0)));
+      const yy = y(Math.max(u.prijs, 0));
+      const w = k.bw - gap;
+      const r = Math.min(4, w / 2, h);
+      // Afgeronde bovenkant, platte voet op de basislijn
+      const d = `M${k.x(i) + gap / 2},${yy + h} V${yy + r} Q${k.x(i) + gap / 2},${yy} ${k.x(i) + gap / 2 + r},${yy} H${k.x(i) + gap / 2 + w - r} Q${k.x(i) + gap / 2 + w},${yy} ${k.x(i) + gap / 2 + w},${yy + r} V${yy + h} Z`;
+      el("path", { d, fill: "var(--s1)", opacity: i < nu ? 0.35 : 1 }, k.svg);
+    });
+    // Goedkoopste en duurste komende uur benoemen
+    const komend = data.uren.map((u, i) => [u, i]).filter(([, i]) => i >= nu);
+    if (komend.length && k.bw >= 14) {
+      const goedkoop = komend.reduce((a, b) => (b[0].prijs < a[0].prijs ? b : a));
+      const duur = komend.reduce((a, b) => (b[0].prijs > a[0].prijs ? b : a));
+      for (const [[u, i], tekst] of [[goedkoop, "goedkoopst"], [duur, "duurst"]]) {
+        const cx = Math.min(Math.max(k.x(i) + k.bw / 2, k.m.l + 50), k.W - k.m.r - 50);
+        const t = el("text", { x: cx, y: y(u.prijs) - 6, "text-anchor": "middle", class: "lbl" }, k.svg);
+        t.textContent = `${tekst} ${eur(u.prijs, 2)}`;
+      }
+    }
+    tijdas(k);
+    nuLijn(k);
+    hoverLaag(k, c);
+  }
+
+  function tekenPlan() {
+    const c = document.getElementById("c-plan");
+    const rijH = 26, rijGap = 26;
+    const k = kader(c, 10 + 2 * rijH + rijGap + 18 + 26 + 36, { links: 12, label: "Per uur de warmtebron en de batterijstand" });
+    const rijen = [
+      { titel: "Verwarming", y: 28, kleur: u => (BRON[u.warmtebron] || BRON.geen).kleur },
+      { titel: "Batterij", y: 28 + rijH + rijGap, kleur: u => BAT[u.batterij_modus].kleur },
+    ];
+    const nu = huidigIndex(data.uren);
+    const gap = Math.min(2, k.bw * 0.2);
+    for (const r of rijen) {
+      el("text", { x: k.m.l, y: r.y - 8, class: "lbl" }, k.svg).textContent = r.titel;
+      data.uren.forEach((u, i) => {
+        el("rect", { x: k.x(i) + gap / 2, y: r.y, width: k.bw - gap, height: rijH, rx: 3, fill: r.kleur(u), opacity: i < nu ? 0.35 : 1 }, k.svg);
+      });
+    }
+    k.m.t = 20; k.binnenH = rijen[1].y + rijH - 20; k.m.b = k.H - rijen[1].y - rijH;
+    // Legenda onder de stroken, één regel per rij
+    const legendaY = rijen[1].y + rijH + 32;
+    tijdas(k, rijen[1].y + rijH + 16, rijen[0].y);
+    nuLijn(k, [[rijen[0].y - 3, rijen[0].y + rijH + 3], [rijen[1].y - 3, rijen[1].y + rijH + 3]]);
+    hoverLaag(k, c);
+    const leg = document.createElement("div");
+    leg.className = "legend";
+    leg.style.marginTop = "6px";
+    leg.innerHTML = '<span style="color:var(--ink)">Verwarming:</span>' +
+      ["airco", "cv", "koelen", "geen"].map(b => `<span><i class="swatch" style="background:${BRON[b].kleur}"></i>${BRON[b].label}</span>`).join("") +
+      '<span style="flex-basis:100%;height:0"></span><span style="color:var(--ink)">Batterij:</span>' +
+      Object.values(BAT).map(b => `<span><i class="swatch" style="background:${b.kleur}"></i>${b.label}</span>`).join("");
+    c.appendChild(leg);
+    k.svg.setAttribute("viewBox", `0 0 ${k.W} ${legendaY - 6}`);
+  }
+
+  function lijnPad(k, waarden, y) {
+    return waarden.map((v, i) => `${i ? "L" : "M"}${k.x(i) + k.bw / 2},${y(v)}`).join(" ");
+  }
+
+  function tekenSoc() {
+    const c = document.getElementById("c-soc");
+    const k = kader(c, 200, { label: "Lijngrafiek van de geplande batterijlading" });
+    const cap = data.batterij_capaciteit_kwh;
+    const stap = mooieStap(cap);
+    const y = yAs(k, Math.ceil(cap / stap) * stap, stap, v => num(v, decimalen(stap)));
+    const w = data.uren.map(u => u.soc_kwh);
+    const pad = lijnPad(k, w, y);
+    el("path", { d: `${pad} L${k.x(k.n - 1) + k.bw / 2},${y(0)} L${k.x(0) + k.bw / 2},${y(0)} Z`, fill: "var(--s1)", opacity: 0.12 }, k.svg);
+    el("path", { d: pad, fill: "none", stroke: "var(--s1)", "stroke-width": 2, "stroke-linejoin": "round" }, k.svg);
+    tijdas(k);
+    nuLijn(k);
+    hoverLaag(k, c);
+  }
+
+  function tekenKw() {
+    const c = document.getElementById("c-kw");
+    const k = kader(c, 200, { rechts: 12, label: "Lijngrafiek van verwacht verbruik en zonne-opbrengst" });
+    const max = Math.max(0.5, ...data.uren.map(u => Math.max(u.verbruik_kw, u.zon_kw)));
+    const stap = mooieStap(max);
+    const y = yAs(k, Math.ceil(max / stap) * stap, stap, v => num(v, decimalen(stap)));
+    el("path", { d: lijnPad(k, data.uren.map(u => u.verbruik_kw), y), fill: "none", stroke: "var(--s1)", "stroke-width": 2, "stroke-linejoin": "round" }, k.svg);
+    el("path", { d: lijnPad(k, data.uren.map(u => u.zon_kw), y), fill: "none", stroke: "var(--s2)", "stroke-width": 2, "stroke-linejoin": "round" }, k.svg);
+    tijdas(k);
+    nuLijn(k);
+    hoverLaag(k, c);
+  }
+
+  function tegels() {
+    const i = huidigIndex(data.uren), u = data.uren[i];
+    const prijzen = data.uren.slice(i).map(x => x.prijs).sort((a, b) => a - b);
+    const rang = prijzen.indexOf(u.prijs) / Math.max(1, prijzen.length - 1);
+    const oordeel = rang <= 0.25 ? "goedkoop uur" : rang >= 0.75 ? "duur uur" : "gemiddeld uur";
+    document.getElementById("t-prijs").textContent = eur(u.prijs) ;
+    document.getElementById("t-prijs-d").textContent = `per kWh · ${oordeel} vergeleken met de komende uren`;
+    const b = BRON[u.warmtebron] || BRON.geen;
+    document.getElementById("t-warmte").innerHTML = `<i class="swatch" style="background:${b.kleur}"></i>${b.label}`;
+    document.getElementById("t-warmte-d").textContent = `Airco's: ${aircoTekst(u)} · CV ${num(u.cv_setpoint)} °C · buiten ${num(u.buitentemp)} °C`;
+    const m = BAT[u.batterij_modus];
+    document.getElementById("t-bat").innerHTML = `<i class="swatch" style="background:${m.kleur}"></i>${m.kort}`;
+    const pct = Math.round(100 * u.soc_kwh / data.batterij_capaciteit_kwh);
+    document.getElementById("t-bat-d").textContent = `${num(u.soc_kwh)} kWh (${pct}%) aan het eind van dit uur`;
+    document.getElementById("t-bes").textContent = eur(data.besparing, 2);
+    document.getElementById("t-bes-d").textContent = `over ${data.uren.length} uur: ${eur(data.kosten_plan, 2)} i.p.v. ${eur(data.kosten_referentie, 2)}`;
+
+    const zin = {
+      laden_net: "laadt de batterij op omdat stroom nu goedkoop is",
+      ontladen_net: "levert de batterij stroom omdat het nu duur is",
+      vasthouden: "houdt de batterij zijn lading vast voor de dure uren straks",
+      zelfconsumptie: "vangt de batterij zonnestroom op en vult tekorten aan",
+    }[u.batterij_modus];
+    const warm = u.warmtebron === "airco" ? "verwarmen de airco's (goedkoper dan gas)" :
+                 u.warmtebron === "cv" ? "verwarmt de CV-ketel (gas is nu goedkoper)" :
+                 u.warmtebron === "koelen" ? "koelen de airco's" : "is er geen verwarming nodig";
+    document.getElementById("nu-zin").textContent = `Nu ${warm} en ${zin}.`;
+  }
+
+  function tabel() {
+    const i0 = huidigIndex(data.uren);
+    const kop = ["Tijd", "Prijs €/kWh", "Buiten °C", "Warmte", "Airco's", "CV °C", "Batterij", "Lading kWh", "Zon kW", "Net kW", "Kosten €"];
+    const t = document.getElementById("tabel");
+    t.innerHTML = "<thead><tr>" + kop.map((h, j) => `<th class="${[3, 4, 6].includes(j) ? "l" : ""}">${h}</th>`).join("") + "</tr></thead><tbody>" +
+      data.uren.map((u, i) => `<tr class="${i === i0 ? "nu" : ""}"><td>${fmtDagUur.format(u.t)}</td><td>${num(u.prijs, 3)}</td><td>${num(u.buitentemp)}</td>` +
+        `<td class="l">${(BRON[u.warmtebron] || BRON.geen).label}</td><td class="l">${aircoTekst(u)}</td><td>${num(u.cv_setpoint)}</td>` +
+        `<td class="l">${BAT[u.batterij_modus].label}</td><td>${num(u.soc_kwh)}</td><td>${num(u.zon_kw, 2)}</td><td>${num(u.net_kw, 2)}</td><td>${num(u.kosten, 3)}</td></tr>`).join("") +
+      "</tbody>";
+  }
+
+  function koptekst() {
+    const gemaakt = new Date(data.gemaakt);
+    document.getElementById("bijgewerkt").textContent = `Plan gemaakt ${fmtDag.format(gemaakt)} om ${fmtUur.format(gemaakt)} · gasprijs ${eur(data.gasprijs_m3, 2)}/m³`;
+    const chip = document.getElementById("bron");
+    chip.classList.toggle("demo", data.bron !== "live");
+    chip.lastElementChild.textContent = data.bron === "live" ? "Live prijzen" : "Voorbeelddata";
+    const meld = document.getElementById("melding");
+    const oud = Date.now() - gemaakt.getTime() > 3 * 3600e3;
+    if (data.bron !== "live") {
+      meld.hidden = false;
+      meld.textContent = "Dit plan gebruikt voorbeelddata, omdat de live prijzen of het weer niet opgehaald konden worden.";
+    } else if (oud) {
+      meld.hidden = false;
+      meld.textContent = "Dit plan is meer dan 3 uur oud. Controleer of de GitHub Action nog draait.";
+    } else meld.hidden = true;
+    document.getElementById("voet-soc").textContent = data.soc_bron === "home_assistant"
+      ? "Batterijlading komt uit Home Assistant."
+      : "Batterijlading is een aanname (50%) totdat Home Assistant gekoppeld is.";
+  }
+
+  function tekenAlles() {
+    if (!data) return;
+    koptekst(); tegels();
+    tekenPrijs(); tekenPlan(); tekenSoc(); tekenKw();
+    tabel();
+  }
+
+  async function laad() {
+    try {
+      const r = await fetch("plan.json?t=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) throw new Error(r.status);
+      data = await r.json();
+      data.uren.forEach(u => (u.t = new Date(u.tijd).getTime()));
+      tekenAlles();
+    } catch (e) {
+      const meld = document.getElementById("melding");
+      meld.hidden = false;
+      meld.textContent = "Het plan kon niet geladen worden. Probeer het later opnieuw.";
+      document.getElementById("bijgewerkt").textContent = "Geen plan beschikbaar";
+    }
+  }
+
+  let rt;
+  addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(tekenAlles, 150); });
+  setInterval(laad, 10 * 60e3);
+  laad();
+})();
+</script>
+</body>
+</html>

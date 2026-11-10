@@ -1,0 +1,107 @@
+# Home Assistant package voor de energieplanner.
+# Zet dit bestand in /config/packages/ en voeg aan configuration.yaml toe:
+#
+#   homeassistant:
+#     packages: !include_dir_named packages
+#
+# Pas de entity-namen (sensor.batterij_soc, de batterij-acties) aan op jullie
+# eigen apparaten. Zoek ze op via Instellingen → Apparaten & diensten → Entiteiten.
+
+input_select:
+  batterij_modus:
+    name: Batterij modus (energieplanner)
+    options:
+      - zelfconsumptie
+      - laden_net
+      - ontladen_net
+      - vasthouden
+    initial: zelfconsumptie
+    icon: mdi:home-battery
+
+input_boolean:
+  energieplanner_actief:
+    name: Energieplanner actief
+    icon: mdi:robot
+    initial: true
+
+shell_command:
+  # Draait de planner elke 15 minuten. Het pad hangt af van waar je de repo
+  # neerzet; met de 'Advanced SSH & Web Terminal' add-on is /config/... handig.
+  # Het token wordt door HA niet meegegeven: zet HA_TOKEN in het script of in
+  # een systemd-timer/cron op een andere machine (zie README).
+  energieplanner_stuur: >-
+    cd /config/thuis-eco-systeem- &&
+    python3 -m energieplanner stuur --config config.toml
+    --soc {{ (states('sensor.batterij_soc') | float(50)) / 100 }}
+
+automation:
+  - id: energieplanner_elk_kwartier
+    alias: "Energieplanner: elk kwartier plannen en sturen"
+    trigger:
+      - platform: time_pattern
+        minutes: "/15"
+    condition:
+      - condition: state
+        entity_id: input_boolean.energieplanner_actief
+        state: "on"
+    action:
+      - service: shell_command.energieplanner_stuur
+
+  # --- Batterij: vertaal de modus naar jullie omvormer -----------------------
+  # Elke batterij heeft eigen besturing (bv. Victron, Growatt, SolarEdge,
+  # Huawei, Zendure, HomeWizard). Vervang de voorbeeld-acties hieronder door
+  # de diensten van jullie eigen integratie.
+  - id: energieplanner_batterij_modus
+    alias: "Energieplanner: batterijmodus toepassen"
+    trigger:
+      - platform: state
+        entity_id: input_select.batterij_modus
+    action:
+      - choose:
+          - conditions: "{{ trigger.to_state.state == 'laden_net' }}"
+            sequence:
+              - service: select.select_option   # VOORBEELD – aanpassen
+                target: { entity_id: select.batterij_werkmodus }
+                data: { option: "Force charge" }
+          - conditions: "{{ trigger.to_state.state == 'ontladen_net' }}"
+            sequence:
+              - service: select.select_option   # VOORBEELD – aanpassen
+                target: { entity_id: select.batterij_werkmodus }
+                data: { option: "Force discharge" }
+          - conditions: "{{ trigger.to_state.state == 'vasthouden' }}"
+            sequence:
+              - service: select.select_option   # VOORBEELD – aanpassen
+                target: { entity_id: select.batterij_werkmodus }
+                data: { option: "Standby" }
+        default:
+          - service: select.select_option       # VOORBEELD – aanpassen
+            target: { entity_id: select.batterij_werkmodus }
+            data: { option: "Self consumption" }
+
+  # --- Veiligheid: bij negatieve stroomprijs niet terugleveren ---------------
+  - id: energieplanner_negatieve_prijs
+    alias: "Energieplanner: negatieve prijs → batterij laden"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.energieplan
+        below: 0
+    action:
+      - service: input_select.select_option
+        target: { entity_id: input_select.batterij_modus }
+        data: { option: laden_net }
+
+  # --- Comfort: vochtigheid onder controle (goed voor het huis) -------------
+  - id: energieplanner_vochtigheid
+    alias: "Energieplanner: melding bij hoge luchtvochtigheid"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.luchtvochtigheid_woonkamer   # aanpassen
+        above: 65
+        for: "02:00:00"
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "Hoge luchtvochtigheid"
+          message: >-
+            Al 2 uur boven 65%. Even ventileren of de airco 1-2 uur op
+            'drogen' (dry) zetten voorkomt schimmel en houdt het huis gezond.
