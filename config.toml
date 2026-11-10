@@ -26,10 +26,12 @@ gas_opslag = 0.08             # Zonneplan inkoopvergoeding gas per m³; gasdag l
 gas_energiebelasting = 0.58
 
 [batterij]
-# Anker SOLIX, 7 kWh, AC-gekoppeld
+# Anker SOLIX Solarbank Max AC, 7 kWh, AC-gekoppeld.
+# Wordt in de praktijk gestuurd door "Slimme modus" (AI) in de Anker-app;
+# het batterijplan op de website is dan een vergelijking/advies.
 capaciteit_kwh = 7.0
-max_laadvermogen_kw = 2.4     # AANNAME – check de specificaties van jullie model
-max_ontlaadvermogen_kw = 2.4  # AANNAME
+max_laadvermogen_kw = 2.5     # AANNAME – ontladen haalt in de praktijk 2,5 kW
+max_ontlaadvermogen_kw = 2.5  # gezien in de Anker-app: 2,51 kW
 rendement_rondgang = 0.88     # AC-gekoppeld: iets meer verlies dan DC
 min_soc = 0.10
 max_soc = 0.95
