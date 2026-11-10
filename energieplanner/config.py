@@ -26,12 +26,14 @@ class Tarieven:
     def stroom_teruglever(self, kale_prijs: float, dag: date) -> float:
         """Waarde van 1 kWh teruglevering.
 
-        Met saldering is dat de all-in prijs (zolang je per jaar meer verbruikt
-        dan opwekt, wat met weinig panelen vrijwel zeker zo is). Daarna krijg je
-        alleen de kale prijs minus eventuele terugleverkosten.
+        Met saldering: (kale prijs - terugleverkosten + energiebelasting) incl.
+        btw. De energiebelasting wordt gesaldeerd, de inkoopopslag niet.
+        Gecontroleerd met de Anker-app (Zonneplan, 10-11-2026 10:15):
+        koop €0,51947, verkoop €0,47609; formule geeft €0,4753.
+        Na de saldering: alleen de kale prijs minus terugleverkosten.
         """
         if dag < self.saldering_tot:
-            return self.stroom_allin(kale_prijs)
+            return (kale_prijs - self.teruglever_kosten + self.energiebelasting) * (1 + self.btw)
         return kale_prijs - self.teruglever_kosten
 
     def gas_allin(self, kale_gasprijs: float | None) -> float:
