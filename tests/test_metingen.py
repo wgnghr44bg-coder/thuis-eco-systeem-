@@ -81,6 +81,7 @@ class TestGrowatt(unittest.TestCase):
             r = metingen.lees_growatt()
         self.assertAlmostEqual(r["zon_kw"], 0.478)
         self.assertAlmostEqual(r["zon_vandaag_kwh"], 0.7)
+        self.assertEqual(r["curve"], [{"tijd": "09:45", "kw": 0.95}, {"tijd": "09:50", "kw": 0.478}])
 
     def test_fout_lekt_geen_wachtwoord(self):
         nep = types.ModuleType("growattServer")

@@ -25,15 +25,28 @@ MODUS_SYMBOOL = {"laden_net": "⬆ laden", "ontladen_net": "⬇ ontladen",
                  "vasthouden": "⏸ vasthouden", "zelfconsumptie": "↔ zelfcons."}
 
 
-def verzamel(cfg: Config, demo: bool) -> tuple[list[bronnen.Uur], float]:
+def verzamel(cfg: Config, demo: bool) -> tuple[list[bronnen.Uur], float, dict]:
+    """Uren vanaf nu, gasprijs, en extra info voor de website."""
     nu = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     if demo:
-        return bronnen.demo_uren(nu), cfg.tarieven.gasprijs
+        uren = bronnen.demo_uren(nu - timedelta(hours=12), 48)
+        alle = {u.tijd: u.kale_prijs for u in uren}
+        return [u for u in uren if u.tijd >= nu], cfg.tarieven.gasprijs, {"prijzen": alle, "gas_dynamisch": False}
     begin_dag = nu.replace(hour=0) - timedelta(hours=2)
     prijzen = bronnen.haal_stroomprijzen(begin_dag, begin_dag + timedelta(days=2, hours=4))
     weer = bronnen.haal_weer(cfg.breedtegraad, cfg.lengtegraad)
-    gas = cfg.tarieven.gas_allin(bronnen.haal_gasprijs(begin_dag))
-    return bronnen.combineer(prijzen, weer, nu), gas
+    kale_gas = bronnen.haal_gasprijs(begin_dag)
+    gas = cfg.tarieven.gas_allin(kale_gas)
+    return bronnen.combineer(prijzen, weer, nu), gas, {"prijzen": prijzen, "gas_dynamisch": kale_gas is not None}
+
+
+def prijzen_vandaag(cfg: Config, alle: dict) -> list[dict]:
+    """All-in prijs per uur voor de hele lokale dag van vandaag (ook voorbij uren)."""
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo(cfg.tijdzone)
+    vandaag = datetime.now(tz).date()
+    return [{"tijd": t.isoformat(), "prijs": round(cfg.tarieven.stroom_allin(p), 4)}
+            for t, p in sorted(alle.items()) if t.astimezone(tz).date() == vandaag]
 
 
 def toon(plan: Plan) -> None:
@@ -70,13 +83,13 @@ def main(argv: list[str] | None = None) -> int:
 
     bron = "demo" if args.demo else "live"
     try:
-        uren, gas = verzamel(cfg, args.demo)
+        uren, gas, extra = verzamel(cfg, args.demo)
     except Exception as e:
         if args.opdracht != "json":
             raise
         # Voor de website liever een demo-plan dan een lege pagina.
         print(f"Live data niet beschikbaar ({e}), val terug op demo", file=sys.stderr)
-        uren, gas, bron = *verzamel(cfg, True), "demo"
+        (uren, gas, extra), bron = verzamel(cfg, True), "demo"
     if not uren:
         print("Geen prijzen beschikbaar.", file=sys.stderr)
         return 1
@@ -96,6 +109,8 @@ def main(argv: list[str] | None = None) -> int:
     elif args.opdracht == "json":
         data = plan_naar_dict(cfg, plan, bron=bron, soc_bron=soc_bron)
         data["metingen"] = metingen
+        data["prijzen_vandaag"] = prijzen_vandaag(cfg, extra["prijzen"])
+        data["gas_dynamisch"] = extra["gas_dynamisch"]
         if metingen:
             for naam in ("growatt", "anker"):
                 m = metingen[naam]

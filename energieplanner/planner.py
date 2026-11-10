@@ -111,6 +111,7 @@ def plan_naar_dict(cfg: Config, plan: Plan, bron: str = "live", soc_bron: str = 
                         "setpoint": None if a.setpoint is None else round(a.setpoint, 1),
                         "cop": round(a.cop, 2)} for a in u.warmte.aircos],
             "batterij_modus": u.batterij.modus,
+            "batterij_kw": round(u.batterij.batterij_kw, 2),
             "soc_kwh": round(u.batterij.soc_eind, 2),
             "net_kw": round(u.batterij.net_kw, 2),
             "kosten": round(u.batterij.kosten + u.warmte.gas_m3 * plan.gasprijs_m3, 4),
