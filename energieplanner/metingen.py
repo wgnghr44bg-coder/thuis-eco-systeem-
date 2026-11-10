@@ -57,25 +57,36 @@ def _vermogen_kw(waarde) -> float | None:
     return getal
 
 
-def _laatste_vermogen(api, plant_id) -> float | None:
-    """Laatste gemeten vermogen (kW) uit de 5-minutencurve van vandaag."""
+def _dagcurve(api, plant_id) -> list[dict]:
+    """5-minutencurve van vandaag als [{"tijd": "HH:MM", "kw": 0.48}, ...]."""
     try:
         curve = api.plant_power_overview(plant_id)
     except Exception as e:
         log.info("Growatt dagcurve niet beschikbaar: %s", type(e).__name__)
-        return None
+        return []
     punten = curve.get("powers", curve.get("data", [])) if isinstance(curve, dict) else curve
-    waarden = []
+    ruw = []
     for p in punten or []:
         v = p.get("power") if isinstance(p, dict) else p
         getal, _ = _getal(v)
-        if getal is not None:
-            waarden.append(getal)
-    log.info("Growatt dagcurve: %d punten, laatste %r", len(waarden), waarden[-1] if waarden else None)
-    if not waarden:
-        return None
+        if getal is None:
+            continue
+        tijd = str(p.get("time", "")) if isinstance(p, dict) else ""
+        m = re.search(r"(\d{1,2}):(\d{2})", tijd)
+        ruw.append((f"{int(m.group(1)):02d}:{m.group(2)}" if m else "", getal))
+    if not ruw:
+        log.info("Growatt dagcurve: geen punten")
+        return []
     # Eenheid bepalen aan de hand van de hele curve: boven 20 is het watt.
-    return waarden[-1] / 1000 if max(waarden) > 20 else waarden[-1]
+    deler = 1000 if max(v for _, v in ruw) > 20 else 1
+    log.info("Growatt dagcurve: %d punten, laatste %r", len(ruw), ruw[-1][1])
+    return [{"tijd": t, "kw": round(v / deler, 3)} for t, v in ruw]
+
+
+def _laatste_vermogen(api, plant_id) -> float | None:
+    """Laatste gemeten vermogen (kW) uit de 5-minutencurve van vandaag."""
+    curve = _dagcurve(api, plant_id)
+    return curve[-1]["kw"] if curve else None
 
 
 def _naar_kwh(waarde, standaard_eenheid: str = "kwh") -> float | None:
@@ -114,6 +125,7 @@ def lees_growatt() -> dict:
     except ImportError:
         return {"status": "fout", "fout": "pakket growattServer niet geïnstalleerd"}
 
+    curve: list[dict] = []
     try:
         if token:
             api = growattServer.OpenApiV1(token=token)
@@ -125,10 +137,11 @@ def lees_growatt() -> dict:
             ruw = _zoek(o, "current_power", "currentPower")
             log.info("Growatt current_power ruw: %r", ruw)
             nu = _vermogen_kw(ruw)
-            if not nu:
-                # current_power wordt door Growatt vaak niet live bijgewerkt (0).
-                # Neem dan het laatste punt uit de dagcurve (zoals de grafiek in de app).
-                nu = _laatste_vermogen(api, plant_id) if hasattr(api, "plant_power_overview") else nu
+            # current_power wordt door Growatt vaak niet live bijgewerkt (0).
+            # Neem dan het laatste punt uit de dagcurve (zoals de grafiek in de app).
+            curve = _dagcurve(api, plant_id) if hasattr(api, "plant_power_overview") else []
+            if not nu and curve:
+                nu = curve[-1]["kw"]
             vandaag = _naar_kwh(_zoek(o, "today_energy", "todayEnergy"))
         else:
             api = growattServer.GrowattApi(add_random_user_id=True)
@@ -143,7 +156,10 @@ def lees_growatt() -> dict:
     except Exception as e:  # netwerk, gewijzigde API, geen installatie gevonden
         return {"status": "fout", "fout": _fout(e)}
 
-    return {"status": "ok", "zon_kw": nu, "zon_vandaag_kwh": vandaag}
+    uit = {"status": "ok", "zon_kw": nu, "zon_vandaag_kwh": vandaag}
+    if curve:
+        uit["curve"] = curve
+    return uit
 
 
 # ----------------------------------------------------------------------- Anker

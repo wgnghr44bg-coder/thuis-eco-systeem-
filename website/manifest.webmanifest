@@ -1,6 +1,6 @@
 {
-  "name": "Energieplan thuis",
-  "short_name": "Energieplan",
+  "name": "Thuis Eco Systeem",
+  "short_name": "Thuis Eco",
   "description": "Stroomprijs, verwarming, batterij en zonne-opbrengst per uur.",
   "lang": "nl",
   "start_url": "./",
