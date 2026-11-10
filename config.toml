@@ -1,0 +1,77 @@
+# Energieplanner – instellingen voor ons huis
+# Tussenwoning · 2× LG airco · Remeha CV · 8 zonnepanelen op het zuiden (Growatt)
+# Anker SOLIX batterij 7 kWh · dynamisch contract Zonneplan
+#
+# Waarden met "AANNAME" zijn schattingen; pas ze aan als je het precies weet.
+# Let op: dit bestand is openbaar (de repository is openbaar). Zet hier nooit
+# wachtwoorden of tokens in, en geen exacte locatie.
+
+[locatie]
+# Globale locatie (midden van Nederland) – genoeg voor weer en zonnestraling
+breedtegraad = 52.1
+lengtegraad = 5.1
+tijdzone = "Europe/Amsterdam"
+
+[tarieven]
+# Zonneplan dynamisch: kale uurprijs + inkoopvergoeding + energiebelasting, plus btw
+inkoop_opslag = 0.02          # AANNAME – check "inkoopvergoeding" in de Zonneplan-app
+energiebelasting = 0.0916     # €/kWh excl. btw – controleer het actuele tarief
+btw = 0.21
+saldering_tot = "2027-01-01"  # salderingsregeling stopt per 2027
+teruglever_kosten = 0.0
+gasprijs = 1.35               # terugvalwaarde €/m³ all-in
+gas_opslag = 0.05             # AANNAME
+gas_energiebelasting = 0.58
+
+[batterij]
+# Anker SOLIX, 7 kWh, AC-gekoppeld
+capaciteit_kwh = 7.0
+max_laadvermogen_kw = 2.4     # AANNAME – check de specificaties van jullie model
+max_ontlaadvermogen_kw = 2.4  # AANNAME
+rendement_rondgang = 0.88     # AC-gekoppeld: iets meer verlies dan DC
+min_soc = 0.10
+max_soc = 0.95
+slijtage_eur_per_kwh = 0.04   # ca. €3.500 / (7 kWh × 6.000 cycli) × marge
+
+[zonnepanelen]
+# 8 panelen op het zuiden, Growatt string-omvormer
+vermogen_kwp = 3.2            # AANNAME – 8 × 400 Wp; pas aan als de panelen anders zijn
+prestatieratio = 0.85         # zuid is gunstig
+
+[huis]
+# Tussenwoning: weinig buitenmuren, dus relatief weinig warmteverlies
+basisverbruik_kw = 0.35       # ca. 3.000 kWh/jaar zonder verwarming
+warmteverlies_w_per_k = 130   # AANNAME – ≈ jaarlijks gasverbruik (m³) × 0,105
+dagtemperatuur = 20.0
+nachttemperatuur = 17.0
+nacht_van = 23
+nacht_tot = 7
+comfort_marge = 1.0
+koelen_vanaf = 25.0
+koel_temperatuur = 24.0
+
+[cv]
+ketelrendement = 0.90
+thermostaat_entity = "climate.remeha"            # Home Assistant: integratie "Remeha Home"
+verlaging_bij_airco = 1.5
+
+[[airco]]
+naam = "Woonkamer"
+entity = "climate.lg_woonkamer"                  # Home Assistant: integratie "LG ThinQ"
+max_warmte_kw = 3.5           # AANNAME – gangbaar voor een woonkamer-unit
+cop_7c = 4.2                  # LG wandunits halen meestal een SCOP van 4,0–4,6
+dekking = 0.55                # in een tussenwoning is de woonkamer het grootste deel
+
+[[airco]]
+naam = "Slaapkamer"
+entity = "climate.lg_slaapkamer"
+max_warmte_kw = 2.5           # AANNAME
+cop_7c = 4.2
+dekking = 0.15
+
+[homeassistant]
+url = "http://homeassistant.local:8123"
+token_env = "HA_TOKEN"
+batterij_modus_entity = "input_select.batterij_modus"
+plan_sensor = "sensor.energieplan"
+batterij_soc_entity = "sensor.solarbank_state_of_charge"   # integratie "Anker Solix" (HACS)

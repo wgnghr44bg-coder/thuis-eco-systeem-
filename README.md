@@ -74,6 +74,19 @@ moet je zelfs betalen). De planner schakelt automatisch om op basis van
 gebruikt of opgeslagen** in plaats van teruggeleverd. De batterij wordt daardoor
 juist waardevoller.
 
+## Ons huis
+
+| Onderdeel     | Wat                                   | Home Assistant-koppeling            |
+|---------------|---------------------------------------|-------------------------------------|
+| Airco's       | LG, woonkamer en slaapkamer           | **LG ThinQ** (standaard integratie) |
+| CV            | Remeha                                | **Remeha Home** (standaard integratie, met eTwist/iSense) |
+| Zonnepanelen  | 8 panelen op het zuiden, Growatt string-omvormer | **Growatt Server** (standaard integratie) |
+| Batterij      | Anker SOLIX, 7 kWh, AC-gekoppeld      | **Anker Solix** (via HACS)          |
+| Contract      | Zonneplan, dynamisch                  | prijzen via EnergyZero (zelfde day-ahead prijzen) |
+| Woning        | tussenwoning                          | –                                   |
+
+De instellingen staan in `config.toml`. Waarden met "AANNAME" zijn schattingen.
+
 ## Aan de slag
 
 Benodigd: Python 3.11 of nieuwer (geen extra pakketten), en bij voorkeur
@@ -143,7 +156,23 @@ Jullie eigen instellingen: zet een `config.toml` in de repo (zonder tokens,
 alleen een globale locatie). Zonder dat bestand gebruikt de site
 `config.voorbeeld.toml`.
 
-**Echte batterijlading tonen (optioneel).** Is Home Assistant via internet
+**Echte meetwaarden uit de apps.** De website kan elk uur de echte gegevens
+uit de Growatt-app ophalen (zonne-opbrengst nu en vandaag). Voeg daarvoor onder
+*Settings → Secrets and variables → Actions → New repository secret* toe:
+
+| Secret             | Waarde                                     |
+|--------------------|--------------------------------------------|
+| `GROWATT_TOKEN`    | API-token uit de Growatt-app (aanbevolen)  |
+
+Of, zonder token: `GROWATT_USERNAME` en `GROWATT_PASSWORD` (inlog van de app).
+Een token is veiliger: het geeft alleen toegang tot de gegevens en is los in te
+trekken, zonder je wachtwoord te wijzigen.
+
+Secrets zijn versleuteld: niemand kan ze terugzien, ook niet in de logboeken.
+Het uitlezen van de Anker-batterij is voorbereid (`energieplanner/metingen.py`)
+maar staat nog niet aan in de workflow; zie de PR-beschrijving.
+
+**Echte batterijlading tonen via Home Assistant (optioneel).** Is Home Assistant via internet
 bereikbaar (bv. met Nabu Casa), voeg dan onder *Settings → Secrets and variables
 → Actions* twee secrets toe: `HA_URL` en `HA_TOKEN`. Het plan start dan vanaf de
 echte lading in plaats van 50%.

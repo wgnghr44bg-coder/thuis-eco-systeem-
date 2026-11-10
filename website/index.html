@@ -66,6 +66,15 @@ h2 { font-size: 16px; margin: 0 0 2px; }
 .tile .detail { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: 0; }
 .card { padding: 16px; margin-bottom: 16px; }
+.card[hidden] { display: none; }
+.meet { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.meet .label { color: var(--ink-2); font-size: 13px; }
+.meet .value { font-size: 22px; font-weight: 600; }
+.meet .detail { color: var(--ink-2); font-size: 12px; }
+.status-ok::before, .status-fout::before, .status-uit::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.status-ok::before { background: var(--good); }
+.status-fout::before { background: var(--s2); }
+.status-uit::before { background: var(--neutral); }
 .card .head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; margin-bottom: 10px; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--ink-2); }
 .legend span { white-space: nowrap; }
@@ -100,7 +109,7 @@ footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
 footer a { color: var(--ink-2); }
 button.theme { font: inherit; font-size: 12px; background: none; border: 1px solid var(--ring); color: var(--ink-2); border-radius: 999px; padding: 2px 10px; cursor: pointer; }
 @media (max-width: 760px) {
-  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tiles, .meet { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid2 { grid-template-columns: 1fr; }
   .grid2 .card { margin-bottom: 16px; }
   .tile .value { font-size: 22px; }
@@ -125,8 +134,16 @@ button.theme { font: inherit; font-size: 12px; background: none; border: 1px sol
   <section class="tiles" aria-label="Nu">
     <div class="tile"><div class="label">Stroomprijs nu</div><div class="value" id="t-prijs">—</div><div class="detail" id="t-prijs-d"></div></div>
     <div class="tile"><div class="label">Verwarming nu</div><div class="value" id="t-warmte">—</div><div class="detail" id="t-warmte-d"></div></div>
-    <div class="tile"><div class="label">Batterij nu</div><div class="value" id="t-bat">—</div><div class="detail" id="t-bat-d"></div></div>
+    <div class="tile"><div class="label">Batterijplan nu</div><div class="value" id="t-bat">—</div><div class="detail" id="t-bat-d"></div></div>
     <div class="tile"><div class="label">Verwachte besparing</div><div class="value" id="t-bes">—</div><div class="detail" id="t-bes-d"></div></div>
+  </section>
+
+  <section class="card" id="gemeten" hidden>
+    <div class="head">
+      <div><h2>Nu gemeten</h2><div class="sub" id="gemeten-tijd"></div></div>
+      <div class="legend" id="gemeten-status"></div>
+    </div>
+    <div class="meet" id="gemeten-waarden"></div>
   </section>
 
   <p class="now-text" id="nu-zin"></p>
@@ -489,14 +506,45 @@ button.theme { font: inherit; font-size: 12px; background: none; border: 1px sol
       meld.hidden = false;
       meld.textContent = "Dit plan is meer dan 3 uur oud. Controleer of de GitHub Action nog draait.";
     } else meld.hidden = true;
-    document.getElementById("voet-soc").textContent = data.soc_bron === "home_assistant"
-      ? "Batterijlading komt uit Home Assistant."
-      : "Batterijlading is een aanname (50%) totdat Home Assistant gekoppeld is.";
+    document.getElementById("voet-soc").textContent = {
+      anker: "Het plan start vanaf de echte batterijlading uit de Anker-app.",
+      home_assistant: "Het plan start vanaf de batterijlading uit Home Assistant.",
+    }[data.soc_bron] || "Batterijlading is een aanname (50%) totdat de batterij gekoppeld is.";
+  }
+
+  function gemeten() {
+    const m = data.metingen, kaart = document.getElementById("gemeten");
+    if (!m) { kaart.hidden = true; return; }
+    kaart.hidden = false;
+    document.getElementById("gemeten-tijd").textContent = `Uit de apps opgehaald om ${fmtUur.format(new Date(m.tijd))}`;
+    const naam = { growatt: "Growatt", anker: "Anker" };
+    const st = x => x.status === "ok" ? ["status-ok", "gekoppeld"] : x.status === "fout" ? ["status-fout", "fout"] : ["status-uit", "niet gekoppeld"];
+    document.getElementById("gemeten-status").innerHTML = ["growatt", "anker"].filter(k => m[k]).map(k => {
+      const [cls, tekst] = st(m[k]);
+      return `<span class="${cls}" title="${(m[k].fout || "").replace(/[<>"&]/g, "")}">${naam[k]}: ${tekst}</span>`;
+    }).join("");
+    const g = m.growatt || {}, a = m.anker || {}, vak = [];
+    const waarde = (label, v, detail = "") => vak.push(`<div><div class="label">${label}</div><div class="value">${v}</div><div class="detail">${detail}</div></div>`);
+    if (g.status === "ok") {
+      waarde("Zonnepanelen nu", g.zon_kw == null ? "—" : num(g.zon_kw, 2) + " kW", "Growatt");
+      waarde("Zon vandaag", g.zon_vandaag_kwh == null ? "—" : num(g.zon_vandaag_kwh, 1) + " kWh", "Growatt");
+    }
+    if (a.status === "ok") {
+      const pct = a.soc == null ? null : Math.round(a.soc * 100);
+      waarde("Batterij", pct == null ? "—" : pct + "%", pct == null ? "" : `${num(a.soc * data.batterij_capaciteit_kwh)} kWh · Anker`);
+      let stroom = "Rust";
+      if (a.laden_kw > 0.02) stroom = `Laadt ${num(a.laden_kw, 2)} kW`;
+      else if (a.ontladen_kw > 0.02) stroom = `Ontlaadt ${num(a.ontladen_kw, 2)} kW`;
+      else if (a.naar_huis_kw > 0.02) stroom = `${num(a.naar_huis_kw, 2)} kW naar huis`;
+      waarde("Batterij doet", stroom, "Anker");
+    }
+    if (!vak.length) vak.push(`<div class="sub" style="grid-column:1/-1">Nog geen apps gekoppeld.</div>`);
+    document.getElementById("gemeten-waarden").innerHTML = vak.join("");
   }
 
   function tekenAlles() {
     if (!data) return;
-    koptekst(); tegels();
+    koptekst(); tegels(); gemeten();
     tekenPrijs(); tekenPlan(); tekenSoc(); tekenKw();
     tabel();
   }
