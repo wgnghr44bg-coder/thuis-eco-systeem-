@@ -14,13 +14,15 @@ tijdzone = "Europe/Amsterdam"
 
 [tarieven]
 # Zonneplan dynamisch: kale uurprijs + inkoopvergoeding + energiebelasting, plus btw
-inkoop_opslag = 0.02          # AANNAME – check "inkoopvergoeding" in de Zonneplan-app
-energiebelasting = 0.0916     # €/kWh excl. btw – controleer het actuele tarief
+inkoop_opslag = 0.01653       # Zonneplan inkoopvergoeding, excl. btw (nov 2026)
+energiebelasting = 0.09161    # €/kWh excl. btw (2026, bevestigd door Zonneplan)
 btw = 0.21
 saldering_tot = "2027-01-01"  # salderingsregeling stopt per 2027
-teruglever_kosten = 0.0
+# Na saldering: marktprijs + €0,02 inkoopvergoeding, geen terugleverkosten.
+# Negatieve "kosten" = vergoeding bovenop de marktprijs.
+teruglever_kosten = -0.02
 gasprijs = 1.35               # terugvalwaarde €/m³ all-in
-gas_opslag = 0.05             # AANNAME
+gas_opslag = 0.08             # Zonneplan inkoopvergoeding gas per m³; gasdag loopt 06:00–06:00
 gas_energiebelasting = 0.58
 
 [batterij]
@@ -39,9 +41,10 @@ vermogen_kwp = 3.2            # AANNAME – 8 × 400 Wp; pas aan als de panelen 
 prestatieratio = 0.85         # zuid is gunstig
 
 [huis]
-# Tussenwoning: weinig buitenmuren, dus relatief weinig warmteverlies
-basisverbruik_kw = 0.35       # ca. 3.000 kWh/jaar zonder verwarming
-warmteverlies_w_per_k = 130   # AANNAME – ≈ jaarlijks gasverbruik (m³) × 0,105
+# Tussenwoning. Het gasverbruik is laag (vooral warm water): de airco's doen
+# al bijna alle verwarming.
+basisverbruik_kw = 0.31       # afgeleid uit het jaarverbruik
+warmteverlies_w_per_k = 100   # afgeleid uit het stroomverbruik van de airco's
 dagtemperatuur = 20.0
 nachttemperatuur = 17.0
 nacht_van = 23
@@ -60,14 +63,14 @@ naam = "Woonkamer"
 entity = "climate.lg_woonkamer"                  # Home Assistant: integratie "LG ThinQ"
 max_warmte_kw = 3.5           # AANNAME – gangbaar voor een woonkamer-unit
 cop_7c = 4.2                  # LG wandunits halen meestal een SCOP van 4,0–4,6
-dekking = 0.55                # in een tussenwoning is de woonkamer het grootste deel
+dekking = 0.70                # de airco's verwarmen al vrijwel het hele huis
 
 [[airco]]
 naam = "Slaapkamer"
 entity = "climate.lg_slaapkamer"
 max_warmte_kw = 2.5           # AANNAME
 cop_7c = 4.2
-dekking = 0.15
+dekking = 0.20
 
 [homeassistant]
 url = "http://homeassistant.local:8123"
