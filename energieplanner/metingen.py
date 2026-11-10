@@ -42,6 +42,21 @@ def _naar_kw(waarde, standaard_eenheid: str = "kw") -> float | None:
     return getal / 1000 if eenheid == "w" else getal
 
 
+def _vermogen_kw(waarde) -> float | None:
+    """Zonnevermogen naar kW, ook als de eenheid ontbreekt.
+
+    Growatt geeft het vermogen soms als kale waarde in kW (0.478), soms in W
+    (478). Een huisinstallatie levert nooit meer dan ~20 kW, dus een kaal getal
+    boven 20 is watt.
+    """
+    getal, eenheid = _getal(waarde)
+    if getal is None:
+        return None
+    if eenheid == "w" or (eenheid == "" and getal > 20):
+        return getal / 1000
+    return getal
+
+
 def _naar_kwh(waarde, standaard_eenheid: str = "kwh") -> float | None:
     getal, eenheid = _getal(waarde, standaard_eenheid)
     if getal is None:
@@ -86,7 +101,9 @@ def lees_growatt() -> dict:
             plant_id = lijst[0].get("plant_id") or lijst[0].get("plantId")
             o = api.plant_energy_overview(plant_id)
             log.info("Growatt overview-velden: %s", sorted(o.keys()))
-            nu = _naar_kw(_zoek(o, "current_power", "currentPower"), "w")
+            ruw = _zoek(o, "current_power", "currentPower")
+            log.info("Growatt current_power ruw: %r", ruw)
+            nu = _vermogen_kw(ruw)
             vandaag = _naar_kwh(_zoek(o, "today_energy", "todayEnergy"))
         else:
             api = growattServer.GrowattApi(add_random_user_id=True)
