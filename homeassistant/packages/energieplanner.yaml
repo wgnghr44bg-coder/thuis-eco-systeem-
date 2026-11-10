@@ -32,7 +32,7 @@ shell_command:
   energieplanner_stuur: >-
     cd /config/thuis-eco-systeem- &&
     python3 -m energieplanner stuur --config config.toml
-    --soc {{ (states('sensor.batterij_soc') | float(50)) / 100 }}
+    --soc {{ (states('sensor.solarbank_state_of_charge') | float(50)) / 100 }}
 
 automation:
   - id: energieplanner_elk_kwartier
@@ -48,9 +48,13 @@ automation:
       - service: shell_command.energieplanner_stuur
 
   # --- Batterij: vertaal de modus naar jullie omvormer -----------------------
-  # Elke batterij heeft eigen besturing (bv. Victron, Growatt, SolarEdge,
-  # Huawei, Zendure, HomeWizard). Vervang de voorbeeld-acties hieronder door
-  # de diensten van jullie eigen integratie.
+  # Ons huis: Anker SOLIX via de HACS-integratie "Anker Solix"
+  # (github.com/thomluther/ha-anker-solix). Die integratie biedt o.a. een
+  # instelbaar uitgangsvermogen en een werkmodus. Kijk na installatie welke
+  # entities er zijn en vervang de VOORBEELD-acties hieronder.
+  # Lukt actief laden uit het net niet via HA, gebruik dan de "Smart Mode" /
+  # dynamische-prijsfunctie in de Anker-app en laat de planner alleen
+  # airco's en CV sturen.
   - id: energieplanner_batterij_modus
     alias: "Energieplanner: batterijmodus toepassen"
     trigger:

@@ -74,6 +74,19 @@ moet je zelfs betalen). De planner schakelt automatisch om op basis van
 gebruikt of opgeslagen** in plaats van teruggeleverd. De batterij wordt daardoor
 juist waardevoller.
 
+## Ons huis
+
+| Onderdeel     | Wat                                   | Home Assistant-koppeling            |
+|---------------|---------------------------------------|-------------------------------------|
+| Airco's       | LG, woonkamer en slaapkamer           | **LG ThinQ** (standaard integratie) |
+| CV            | Remeha                                | **Remeha Home** (standaard integratie, met eTwist/iSense) |
+| Zonnepanelen  | 8 panelen op het zuiden, Growatt string-omvormer | **Growatt Server** (standaard integratie) |
+| Batterij      | Anker SOLIX, 7 kWh, AC-gekoppeld      | **Anker Solix** (via HACS)          |
+| Contract      | Zonneplan, dynamisch                  | prijzen via EnergyZero (zelfde day-ahead prijzen) |
+| Woning        | tussenwoning                          | –                                   |
+
+De instellingen staan in `config.toml`. Waarden met "AANNAME" zijn schattingen.
+
 ## Aan de slag
 
 Benodigd: Python 3.11 of nieuwer (geen extra pakketten), en bij voorkeur
