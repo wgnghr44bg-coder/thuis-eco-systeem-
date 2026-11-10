@@ -49,7 +49,7 @@ jobs:
           GROWATT_TOKEN: ${{ secrets.GROWATT_TOKEN }}
         run: |
           mkdir -p _site
-          cp website/index.html _site/
+          cp -r website/. _site/
           CONFIG=config.toml
           [ -f "$CONFIG" ] || CONFIG=config.voorbeeld.toml
           python -m energieplanner json --config "$CONFIG" --uitvoer _site/plan.json
