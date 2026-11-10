@@ -64,6 +64,24 @@ class TestGrowatt(unittest.TestCase):
         self.assertAlmostEqual(r["zon_kw"], 0.84)
         self.assertAlmostEqual(r["zon_vandaag_kwh"], 2.3)
 
+    def test_dagcurve_als_current_power_nul_is(self):
+        nep = types.ModuleType("growattServer")
+
+        class OpenApi:
+            def __init__(self, token): pass
+            def plant_list(self): return {"plants": [{"plant_id": 1}]}
+            def plant_energy_overview(self, pid): return {"current_power": 0, "today_energy": "0.7"}
+            def plant_power_overview(self, pid):
+                return {"powers": [{"time": "09:45", "power": 950.0}, {"time": "09:50", "power": 478.0},
+                                   {"time": "09:55", "power": None}]}
+
+        nep.OpenApiV1 = OpenApi
+        with mock.patch.dict(sys.modules, {"growattServer": nep}), \
+             mock.patch.dict(os.environ, {"GROWATT_TOKEN": "tok"}, clear=True):
+            r = metingen.lees_growatt()
+        self.assertAlmostEqual(r["zon_kw"], 0.478)
+        self.assertAlmostEqual(r["zon_vandaag_kwh"], 0.7)
+
     def test_fout_lekt_geen_wachtwoord(self):
         nep = types.ModuleType("growattServer")
 

@@ -57,6 +57,27 @@ def _vermogen_kw(waarde) -> float | None:
     return getal
 
 
+def _laatste_vermogen(api, plant_id) -> float | None:
+    """Laatste gemeten vermogen (kW) uit de 5-minutencurve van vandaag."""
+    try:
+        curve = api.plant_power_overview(plant_id)
+    except Exception as e:
+        log.info("Growatt dagcurve niet beschikbaar: %s", type(e).__name__)
+        return None
+    punten = curve.get("powers", curve.get("data", [])) if isinstance(curve, dict) else curve
+    waarden = []
+    for p in punten or []:
+        v = p.get("power") if isinstance(p, dict) else p
+        getal, _ = _getal(v)
+        if getal is not None:
+            waarden.append(getal)
+    log.info("Growatt dagcurve: %d punten, laatste %r", len(waarden), waarden[-1] if waarden else None)
+    if not waarden:
+        return None
+    # Eenheid bepalen aan de hand van de hele curve: boven 20 is het watt.
+    return waarden[-1] / 1000 if max(waarden) > 20 else waarden[-1]
+
+
 def _naar_kwh(waarde, standaard_eenheid: str = "kwh") -> float | None:
     getal, eenheid = _getal(waarde, standaard_eenheid)
     if getal is None:
@@ -104,6 +125,10 @@ def lees_growatt() -> dict:
             ruw = _zoek(o, "current_power", "currentPower")
             log.info("Growatt current_power ruw: %r", ruw)
             nu = _vermogen_kw(ruw)
+            if not nu:
+                # current_power wordt door Growatt vaak niet live bijgewerkt (0).
+                # Neem dan het laatste punt uit de dagcurve (zoals de grafiek in de app).
+                nu = _laatste_vermogen(api, plant_id) if hasattr(api, "plant_power_overview") else nu
             vandaag = _naar_kwh(_zoek(o, "today_energy", "todayEnergy"))
         else:
             api = growattServer.GrowattApi(add_random_user_id=True)
