@@ -99,6 +99,7 @@ class HomeAssistant:
     token_env: str = "HA_TOKEN"
     batterij_modus_entity: str = "input_select.batterij_modus"
     plan_sensor: str = "sensor.energieplan"
+    batterij_soc_entity: str = "sensor.batterij_soc"
 
 
 @dataclass

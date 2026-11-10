@@ -125,6 +125,40 @@ Met `input_boolean.energieplanner_actief` zet je de sturing in één klik uit.
 - **`slijtage_eur_per_kwh`** – aanschafprijs batterij ÷ (capaciteit × ~6.000 cycli).
 - **`energiebelasting`, `inkoop_opslag`** – check je contract en het actuele tarief.
 
+## Website (GitHub Pages)
+
+Op de website zie je wat het huis doet: de stroomprijs per uur, of de airco's
+of de CV verwarmen, wat de batterij doet, de verwachte lading en de besparing.
+Een GitHub Action (`.github/workflows/website.yml`) maakt **elk uur** een nieuw
+plan met live prijzen en weer en zet het online.
+
+Eenmalig instellen:
+
+1. Zet deze code op de `main`-branch (via een pull request).
+2. Ga op GitHub naar **Settings → Pages** en kies bij *Source*: **GitHub Actions**.
+3. Start de eerste keer handmatig: **Actions → Website → Run workflow**.
+4. De site staat daarna op `https://<gebruikersnaam>.github.io/thuis-eco-systeem-/`.
+
+Jullie eigen instellingen: zet een `config.toml` in de repo (zonder tokens,
+alleen een globale locatie). Zonder dat bestand gebruikt de site
+`config.voorbeeld.toml`.
+
+**Echte batterijlading tonen (optioneel).** Is Home Assistant via internet
+bereikbaar (bv. met Nabu Casa), voeg dan onder *Settings → Secrets and variables
+→ Actions* twee secrets toe: `HA_URL` en `HA_TOKEN`. Het plan start dan vanaf de
+echte lading in plaats van 50%.
+
+> Let op: de repository is openbaar, dus de website is dat ook. Er staan geen
+> adressen, tokens of namen op, alleen prijzen en het plan per uur.
+
+Lokaal bekijken:
+
+```bash
+mkdir -p site && cp website/index.html site/
+python3 -m energieplanner json --demo --uitvoer site/plan.json
+cd site && python3 -m http.server   # open http://localhost:8000
+```
+
 ## Projectstructuur
 
 ```
@@ -135,5 +169,7 @@ energieplanner/
   planner.py        alles samen + vergelijking met 'niet slim sturen'
   homeassistant.py  plan doorzetten naar Home Assistant
 homeassistant/packages/energieplanner.yaml   helpers en automatiseringen
+website/index.html                             dashboard (leest plan.json)
+.github/workflows/website.yml                  elk uur plan maken + publiceren
 tests/                                         python3 -m unittest
 ```

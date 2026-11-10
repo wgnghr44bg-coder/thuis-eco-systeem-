@@ -2,19 +2,22 @@
 
     python -m energieplanner plan  [--config config.toml] [--demo] [--soc 0.5]
     python -m energieplanner stuur [--config config.toml] [--soc 0.5] [--droog]
+    python -m energieplanner json  [--config config.toml] [--uitvoer site/plan.json]
 """
 
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import bronnen
 from .config import Config, laad_config
-from .homeassistant import stuur
-from .planner import Plan, maak_plan
+from .homeassistant import lees_soc, stuur
+from .planner import Plan, maak_plan, plan_naar_dict
 
 MODUS_SYMBOOL = {"laden_net": "⬆ laden", "ontladen_net": "⬇ ontladen",
                  "vasthouden": "⏸ vasthouden", "zelfconsumptie": "↔ zelfcons."}
@@ -47,10 +50,12 @@ def toon(plan: Plan) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="energieplanner", description="Slimme sturing van airco's, CV en thuisbatterij")
-    p.add_argument("opdracht", choices=["plan", "stuur"])
+    p.add_argument("opdracht", choices=["plan", "stuur", "json"])
     p.add_argument("--config", default="config.toml")
     p.add_argument("--demo", action="store_true", help="gebruik nep-data i.p.v. internet")
-    p.add_argument("--soc", type=float, default=0.5, help="huidige batterijlading als fractie (0-1)")
+    p.add_argument("--soc", type=float, default=None,
+                   help="huidige batterijlading als fractie (0-1); standaard uit Home Assistant of 0.5")
+    p.add_argument("--uitvoer", default="site/plan.json", help="bestand voor de json-opdracht")
     p.add_argument("--droog", action="store_true", help="toon wat naar Home Assistant zou gaan, zonder te sturen")
     args = p.parse_args(argv)
 
@@ -60,14 +65,34 @@ def main(argv: list[str] | None = None) -> int:
         print(f"(config.toml niet gevonden, gebruik {pad.name})", file=sys.stderr)
     cfg = laad_config(pad)
 
-    uren, gas = verzamel(cfg, args.demo)
+    bron = "demo" if args.demo else "live"
+    try:
+        uren, gas = verzamel(cfg, args.demo)
+    except Exception as e:
+        if args.opdracht != "json":
+            raise
+        # Voor de website liever een demo-plan dan een lege pagina.
+        print(f"Live data niet beschikbaar ({e}), val terug op demo", file=sys.stderr)
+        uren, gas, bron = *verzamel(cfg, True), "demo"
     if not uren:
         print("Geen prijzen beschikbaar.", file=sys.stderr)
         return 1
-    plan = maak_plan(cfg, uren, args.soc, gas)
+
+    soc, soc_bron = args.soc, "opgegeven"
+    if soc is None:
+        soc = lees_soc(cfg)
+        soc_bron = "home_assistant" if soc is not None else "aanname"
+        soc = 0.5 if soc is None else soc
+    plan = maak_plan(cfg, uren, soc, gas)
 
     if args.opdracht == "plan":
         toon(plan)
+    elif args.opdracht == "json":
+        data = plan_naar_dict(cfg, plan, bron=bron, soc_bron=soc_bron)
+        os.makedirs(os.path.dirname(args.uitvoer) or ".", exist_ok=True)
+        with open(args.uitvoer, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=1)
+        print(f"Plan geschreven naar {args.uitvoer} ({len(plan.uren)} uur, bron: {bron})")
     else:
         client = stuur(cfg, plan, droog=args.droog)
         for pad_, data in client.log:

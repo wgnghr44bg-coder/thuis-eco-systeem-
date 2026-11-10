@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from .batterij import BatterijUur, plan_batterij
@@ -83,3 +83,37 @@ def _referentiekosten(cfg, uren, warmte, zon, inkoop, terug, start_soc, gasprijs
         kosten += rest * i if rest >= 0 else rest * t
         kosten += w.warmtevraag_kw / (GAS_KWH_PER_M3 * cfg.cv.ketelrendement) * gasprijs
     return kosten
+
+
+def plan_naar_dict(cfg: Config, plan: Plan, bron: str = "live", soc_bron: str = "aanname") -> dict:
+    """Plan als eenvoudige data voor de website (bevat geen locatie of tokens)."""
+    return {
+        "gemaakt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "bron": bron,
+        "soc_bron": soc_bron,
+        "gasprijs_m3": round(plan.gasprijs_m3, 3),
+        "kosten_plan": round(plan.kosten_plan, 2),
+        "kosten_referentie": round(plan.kosten_referentie, 2),
+        "besparing": round(plan.besparing, 2),
+        "batterij_capaciteit_kwh": cfg.batterij.capaciteit_kwh,
+        "uren": [{
+            "tijd": u.tijd.isoformat(),
+            "prijs": round(u.inkoop, 4),
+            "teruglever": round(u.teruglever, 4),
+            "buitentemp": round(u.buitentemp, 1),
+            "zon_kw": round(u.zon_kw, 2),
+            "verbruik_kw": round(u.verbruik_kw, 2),
+            "warmtevraag_kw": round(u.warmte.warmtevraag_kw, 2),
+            "warmtebron": u.warmte.bron,
+            "cv_setpoint": round(u.warmte.cv_setpoint, 1),
+            "gas_m3": round(u.warmte.gas_m3, 3),
+            "aircos": [{"naam": a.naam, "modus": a.modus,
+                        "setpoint": None if a.setpoint is None else round(a.setpoint, 1),
+                        "cop": round(a.cop, 2)} for a in u.warmte.aircos],
+            "batterij_modus": u.batterij.modus,
+            "soc_kwh": round(u.batterij.soc_eind, 2),
+            "net_kw": round(u.batterij.net_kw, 2),
+            "kosten": round(u.batterij.kosten + u.warmte.gas_m3 * plan.gasprijs_m3, 4),
+            "reden": u.warmte.reden,
+        } for u in plan.uren],
+    }

@@ -87,3 +87,24 @@ def stuur(cfg: Config, plan: Plan, droog: bool = False, nu: datetime | None = No
         } for p in plan.uren],
     })
     return client
+
+
+def lees_soc(cfg: Config) -> float | None:
+    """Huidige batterijlading (0-1) uit Home Assistant, als dat bereikbaar is.
+
+    Gebruikt HA_URL (optioneel, overschrijft de config) en het token. Geeft None
+    als er geen token, entity of verbinding is.
+    """
+    ha = cfg.homeassistant
+    token = os.environ.get(ha.token_env, "")
+    if not token or not ha.batterij_soc_entity:
+        return None
+    url = os.environ.get("HA_URL", ha.url).rstrip("/")
+    req = urllib.request.Request(f"{url}/api/states/{ha.batterij_soc_entity}",
+                                 headers={"Authorization": f"Bearer {token}"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            waarde = float(json.load(resp)["state"])
+    except Exception:
+        return None
+    return max(0.0, min(1.0, waarde / 100 if waarde > 1 else waarde))

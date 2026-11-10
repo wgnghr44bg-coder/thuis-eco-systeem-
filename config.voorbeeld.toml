@@ -73,3 +73,4 @@ url = "http://homeassistant.local:8123"
 token_env = "HA_TOKEN"        # long-lived access token staat in deze omgevingsvariabele
 batterij_modus_entity = "input_select.batterij_modus"
 plan_sensor = "sensor.energieplan"
+batterij_soc_entity = "sensor.batterij_soc"  # laadtoestand in %, gebruikt als startpunt van het plan
