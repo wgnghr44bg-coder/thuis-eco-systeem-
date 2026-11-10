@@ -16,6 +16,13 @@ class TestOmrekenen(unittest.TestCase):
         self.assertIsNone(metingen._naar_kw(None))
         self.assertIsNone(metingen._naar_kw("onbekend"))
 
+    def test_vermogen_zonder_eenheid(self):
+        self.assertAlmostEqual(metingen._vermogen_kw(0.478), 0.478)
+        self.assertAlmostEqual(metingen._vermogen_kw("0.478"), 0.478)
+        self.assertAlmostEqual(metingen._vermogen_kw(478), 0.478)
+        self.assertAlmostEqual(metingen._vermogen_kw("478 W"), 0.478)
+        self.assertAlmostEqual(metingen._vermogen_kw("1.2 kW"), 1.2)
+
 
 class TestZonderInlog(unittest.TestCase):
     def test_niet_gekoppeld(self):
