@@ -67,6 +67,14 @@ main {
            calc(48px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
 }
 button.theme[disabled] { opacity: .5; }
+#slot { position: fixed; inset: 0; z-index: 50; background: var(--page); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#slot[hidden] { display: none; }
+#slot form { width: 100%; max-width: 340px; background: var(--surface); border: 1px solid var(--ring); border-radius: 16px; padding: 24px; display: grid; gap: 12px; text-align: center; }
+#slot h2 { margin: 0; font-size: 20px; color: var(--ink); }
+#slot p { margin: 0; color: var(--ink-2); font-size: 14px; }
+#slot input { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--axis); background: var(--page); color: var(--ink); }
+#slot button { font: inherit; font-size: 16px; padding: 10px; border: 0; border-radius: 10px; background: var(--brand); color: #fff; cursor: pointer; }
+#slot .fout { color: #c0392b; min-height: 1.2em; }
 header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 20px; }
 h1 { font-size: 24px; line-height: 1.2; margin: 0; letter-spacing: -0.01em; }
 h2 { font-size: 16px; margin: 0 0 2px; }
@@ -213,6 +221,15 @@ section[data-tab][hidden] { display: none; }
   </nav>
 
   <div class="notice" id="melding" hidden></div>
+  <div id="slot" hidden>
+    <form id="slotform" autocomplete="on">
+      <h2>🔒 Energieplan</h2>
+      <p>Vul de code in om de website te openen.</p>
+      <input id="slotcode" type="password" name="password" autocomplete="current-password" placeholder="Code" required>
+      <button type="submit">Openen</button>
+      <p class="fout" id="slotfout"></p>
+    </form>
+  </div>
 
   <section data-tab="dashboard">
     <section class="card flow">
@@ -917,13 +934,50 @@ section[data-tab][hidden] { display: none; }
     if (actief === "analyse") { tegels(); gemeten(); tekenPrijs(); tekenPlan(); tekenSoc(); tekenKw(); tabel(); }
   }
 
+  // Het plan is versleuteld met een code (PBKDF2-SHA256 + AES-GCM, zie energieplanner/slot.py).
+  const b64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+  async function ontsleutel(p, code) {
+    const basis = await crypto.subtle.importKey("raw", new TextEncoder().encode(code), "PBKDF2", false, ["deriveKey"]);
+    const sleutel = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", hash: "SHA-256", salt: b64(p.zout), iterations: p.iter },
+      basis, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+    const uit = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(p.iv) }, sleutel, b64(p.data));
+    return JSON.parse(new TextDecoder().decode(uit));
+  }
+  async function openSlot(p) {
+    let code = null;
+    try { code = localStorage.getItem("sitecode"); } catch {}
+    if (code) {
+      try { return await ontsleutel(p, code); }
+      catch { try { localStorage.removeItem("sitecode"); } catch {} }
+    }
+    const scherm = document.getElementById("slot"), form = document.getElementById("slotform");
+    const veld = document.getElementById("slotcode"), fout = document.getElementById("slotfout");
+    scherm.hidden = false;
+    veld.focus();
+    return new Promise(klaar => {
+      form.onsubmit = async ev => {
+        ev.preventDefault();
+        fout.textContent = "Even controleren…";
+        try {
+          const uit = await ontsleutel(p, veld.value.trim());
+          try { localStorage.setItem("sitecode", veld.value.trim()); } catch {}
+          scherm.hidden = true; fout.textContent = ""; veld.value = "";
+          klaar(uit);
+        } catch { fout.textContent = "Verkeerde code, probeer opnieuw."; veld.select(); }
+      };
+    });
+  }
+
   async function laad() {
     const knop = document.getElementById("ververs");
     knop.disabled = true;
     try {
       const r = await fetch("plan.json?t=" + Date.now(), { cache: "no-store" });
       if (!r.ok) throw new Error(r.status);
-      data = await r.json();
+      let pakket = await r.json();
+      if (pakket.versleuteld) pakket = await openSlot(pakket);
+      data = pakket;
       data.uren.forEach(u => (u.t = new Date(u.tijd).getTime()));
       tekenAlles();
       if (!navigator.onLine) {

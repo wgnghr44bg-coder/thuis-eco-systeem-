@@ -177,8 +177,12 @@ bereikbaar (bv. met Nabu Casa), voeg dan onder *Settings → Secrets and variabl
 → Actions* twee secrets toe: `HA_URL` en `HA_TOKEN`. Het plan start dan vanaf de
 echte lading in plaats van 50%.
 
-> Let op: de repository is openbaar, dus de website is dat ook. Er staan geen
-> adressen, tokens of namen op, alleen prijzen en het plan per uur.
+> Let op: de repository is openbaar. Daarom is het plan (met de echte
+> meetwaarden) **versleuteld met een code**: zet de repository secret
+> `SITE_CODE` (Settings → Secrets and variables → Actions). De website vraagt
+> die code één keer en onthoudt hem op dat apparaat. Zonder `SITE_CODE` wordt er
+> geen plan gepubliceerd. Kies een lange code (minstens 12 tekens of 4 losse
+> woorden): het versleutelde bestand is openbaar, dus een korte code is te raden.
 
 Lokaal bekijken:
 

@@ -29,11 +29,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Growatt-koppeling en versleuteling installeren
+        run: pip install --quiet "growattServer>=1.5,<2" "cryptography>=42"
+
       - name: Tests
         run: python -m unittest
-
-      - name: Growatt-koppeling installeren
-        run: pip install --quiet "growattServer>=1.5,<2"
 
       - name: Plan maken
         env:
@@ -53,6 +53,13 @@ jobs:
           CONFIG=config.toml
           [ -f "$CONFIG" ] || CONFIG=config.voorbeeld.toml
           python -m energieplanner json --config "$CONFIG" --uitvoer _site/plan.json
+
+      - name: Plan versleutelen met de code
+        env:
+          # De code van de website, als repository secret SITE_CODE.
+          # Zonder deze secret wordt er geen plan gepubliceerd.
+          SITE_CODE: ${{ secrets.SITE_CODE }}
+        run: python -m energieplanner.slot _site/plan.json
 
       - uses: actions/configure-pages@v5
 
