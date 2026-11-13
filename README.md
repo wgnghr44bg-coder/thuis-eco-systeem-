@@ -186,6 +186,14 @@ browser; het wachtwoord gaat nooit over internet. Met "Onthoud op dit apparaat"
 hoef je het maar één keer in te vullen. Wachtwoord veranderen = het secret
 aanpassen; na de volgende run werkt alleen het nieuwe wachtwoord.
 
+**Openen met Face ID.** Na de eerste keer inloggen met het wachtwoord biedt de
+site aan om voortaan Face ID te gebruiken (op Android: vingerafdruk, op de Mac:
+Touch ID). Er wordt dan een passkey in de sleutelhanger van het toestel gemaakt;
+Face ID geeft een geheime sleutel vrij (WebAuthn PRF) waarmee het wachtwoord
+versleuteld op het toestel staat. Er is geen server voor nodig. Werkt op de
+iPhone vanaf iOS 18, ook als app op het beginscherm. Verander je het wachtwoord,
+dan vraagt de site één keer het nieuwe en kun je Face ID opnieuw instellen.
+
 Wat het wachtwoord níet afschermt: de code in deze repository (ook
 `config.toml`) en de lege pagina met het wachtwoordvak. Zonder het secret staat
 het plan onversleuteld online en geeft de Action een waarschuwing.

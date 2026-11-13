@@ -253,6 +253,11 @@ body.vergrendeld section[data-tab], body.vergrendeld nav.tabs, body.vergrendeld 
 .slot .fouttekst { color: var(--color-warn-ink); }
 .tekstknop { background: none; border: 0; padding: 0; color: var(--color-ink-2); text-decoration: underline; text-decoration-color: var(--color-grid-strong); text-underline-offset: 3px; cursor: pointer; font-size: inherit; min-height: 44px; justify-self: start; }
 .tekstknop:hover { color: var(--color-ink); text-decoration-color: var(--color-ink); }
+.slot .of { display: flex; align-items: center; gap: var(--space-sm); color: var(--color-muted); font-size: var(--step--1); }
+.slot .of::before, .slot .of::after { content: ""; flex: 1; border-top: var(--rule-hair) solid var(--color-rule); }
+.aanbod { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm) var(--space-md); background: var(--color-paper-2); border-radius: var(--radius-card); box-shadow: 0 0 0 1px var(--color-ink), var(--shadow-card); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md); }
+.aanbod p { flex: 1 1 16rem; }
+.aanbod .knoppen { flex-wrap: wrap; }
 
 /* Onderbalk op de telefoon */
 nav.onder { display: none; }
@@ -325,8 +330,23 @@ nav.onder { display: none; }
   <p class="meta" id="bijgewerkt">Plan wordt geladen</p>
   <div class="melding" id="melding" role="status" hidden></div>
 
+  <div class="aanbod" id="faceid-aanbod" role="status" hidden>
+    <p>Voortaan openen met Face ID, zonder wachtwoord te typen?</p>
+    <div class="knoppen">
+      <button class="knop knop--primair" type="button" id="faceid-aan">Face ID instellen</button>
+      <button class="knop" type="button" id="faceid-nee">Niet nu</button>
+    </div>
+  </div>
+
   <section class="vlak slot" id="slot" aria-labelledby="t-slot" hidden>
     <div><h2 id="t-slot">Deze gegevens zijn beveiligd</h2><p class="muted klein" style="margin-top:var(--space-2xs)">Vul het wachtwoord in om de stroomprijzen, de zon en de batterij te zien. Het wachtwoord gaat niet over internet: je browser ontsleutelt de gegevens zelf.</p></div>
+    <div id="faceid-blok" hidden style="display:grid;gap:var(--space-md)">
+      <button class="knop knop--primair" type="button" id="faceid-knop">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3M9 9v1.5M15 9v1.5M12 9v4.5h-1M9 16.5c1.8 1.3 4.2 1.3 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Openen met Face ID
+      </button>
+      <span class="of">of met het wachtwoord</span>
+    </div>
     <form id="slot-form">
       <div class="veld"><label for="slot-ww">Wachtwoord</label><input id="slot-ww" name="password" type="password" autocomplete="current-password" required style="font-family:var(--font-body)"></div>
       <label class="vink"><input type="checkbox" id="slot-onthoud" checked> Onthoud op dit apparaat</label>
@@ -1316,6 +1336,10 @@ nav.onder { display: none; }
     $("melding").hidden = true;
     $("bijgewerkt").textContent = "Vergrendeld";
     $("vergeet").hidden = true;
+    $("faceid-aanbod").hidden = true;
+    const metFaceId = kanPasskey && !!fidOpgeslagen();
+    $("faceid-blok").hidden = !metFaceId;
+    $("slot-knop").classList.toggle("knop--primair", !metFaceId);
     $("slot-status").textContent = foutmelding || "";
     $("slot-status").classList.toggle("fouttekst", !!foutmelding);
     if (foutmelding) { $("slot-ww").focus(); $("slot-ww").select(); }
@@ -1340,8 +1364,99 @@ nav.onder { display: none; }
     if (data) $("slot-ww").value = "";
   });
   $("vergeet").addEventListener("click", () => {
-    try { localStorage.removeItem(WW_SLEUTEL); } catch {}
+    try { [WW_SLEUTEL, FID_SLEUTEL, FID_NEE].forEach(k => localStorage.removeItem(k)); } catch {}
     location.reload();
+  });
+
+  // ------------------------------------------------------------ Face ID (passkey met PRF)
+  // Een passkey in de sleutelhanger van het toestel levert na Face ID een
+  // geheime sleutel (WebAuthn PRF). Daarmee staat het wachtwoord versleuteld op
+  // dit apparaat; zonder Face ID is het niet te lezen. Er is geen server nodig.
+  const FID_SLEUTEL = "site-faceid", FID_NEE = "site-faceid-nee";
+  const kanPasskey = !!(window.PublicKeyCredential && navigator.credentials && window.crypto && crypto.subtle);
+  const naar64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const fidOpgeslagen = () => { try { return JSON.parse(localStorage.getItem(FID_SLEUTEL) || "null"); } catch { return null; } };
+  const prfSleutel = prf => crypto.subtle.importKey("raw", prf, "AES-GCM", false, ["encrypt", "decrypt"]);
+  const willekeurig = n => crypto.getRandomValues(new Uint8Array(n));
+
+  async function prfVan(credId, zout) {
+    const cred = await navigator.credentials.get({ publicKey: {
+      challenge: willekeurig(32), allowCredentials: [{ type: "public-key", id: credId }],
+      userVerification: "required", timeout: 60000, extensions: { prf: { eval: { first: zout } } } } });
+    const r = cred.getClientExtensionResults().prf;
+    if (!r || !r.results || !r.results.first) throw new Error("geen-prf");
+    return r.results.first;
+  }
+
+  async function faceIdInstellen() {
+    const zout = willekeurig(32);
+    const cred = await navigator.credentials.create({ publicKey: {
+      rp: { name: "Thuis Eco Systeem" },
+      user: { id: willekeurig(16), name: "Thuis Eco Systeem", displayName: "Thuis Eco Systeem" },
+      challenge: willekeurig(32),
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+      authenticatorSelection: { userVerification: "required", residentKey: "preferred" },
+      timeout: 60000, extensions: { prf: { eval: { first: zout } } } } });
+    const ext = cred.getClientExtensionResults().prf;
+    if (!ext || ext.enabled === false) throw new Error("geen-prf");
+    // Sommige toestellen geven de sleutel pas bij de eerste keer inloggen.
+    const prf = (ext.results && ext.results.first) || await prfVan(cred.rawId, zout);
+    const iv = willekeurig(12);
+    const geheim = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await prfSleutel(prf), new TextEncoder().encode(wachtwoord));
+    localStorage.setItem(FID_SLEUTEL, JSON.stringify({ id: naar64(cred.rawId), zout: naar64(zout), iv: naar64(iv), data: naar64(geheim) }));
+    localStorage.removeItem(WW_SLEUTEL);
+  }
+
+  async function openMetFaceId() {
+    const f = fidOpgeslagen();
+    const prf = await prfVan(b64(f.id), b64(f.zout));
+    const platte = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(f.iv) }, await prfSleutel(prf), b64(f.data));
+    wachtwoord = new TextDecoder().decode(platte);
+  }
+
+  function toonFaceIdAanbod() {
+    let nee = false;
+    try { nee = !!localStorage.getItem(FID_NEE); } catch {}
+    $("faceid-aanbod").hidden = !(kanPasskey && wachtwoord && !fidOpgeslagen() && !nee && document.body.dataset.versleuteld);
+  }
+
+  $("faceid-knop").addEventListener("click", async () => {
+    $("faceid-knop").disabled = true;
+    $("slot-status").classList.remove("fouttekst");
+    $("slot-status").textContent = "";
+    try {
+      await openMetFaceId();
+      $("slot-status").textContent = "Bezig met openen";
+      await laad();
+    } catch (e) {
+      const afgebroken = e && e.name === "NotAllowedError";
+      if (!afgebroken) { try { localStorage.removeItem(FID_SLEUTEL); } catch {} }
+      toonSlot(afgebroken
+        ? "Face ID is afgebroken. Probeer het opnieuw of gebruik het wachtwoord."
+        : "Face ID werkte niet. Gebruik het wachtwoord; daarna kun je Face ID opnieuw instellen.");
+    } finally {
+      $("faceid-knop").disabled = false;
+    }
+  });
+  $("faceid-aan").addEventListener("click", async () => {
+    $("faceid-aan").disabled = true;
+    try {
+      await faceIdInstellen();
+      $("faceid-aanbod").hidden = true;
+      $("melding").hidden = false;
+      $("melding").textContent = "Face ID staat aan. Voortaan open je de site met Face ID.";
+    } catch (e) {
+      $("melding").hidden = false;
+      $("melding").textContent = e && e.message === "geen-prf"
+        ? "Dit toestel ondersteunt Face ID voor websites nog niet (op de iPhone is iOS 18 of nieuwer nodig). Het wachtwoord blijft gewoon werken."
+        : "Face ID instellen is niet gelukt of afgebroken. Je kunt het later opnieuw proberen.";
+    } finally {
+      $("faceid-aan").disabled = false;
+    }
+  });
+  $("faceid-nee").addEventListener("click", () => {
+    try { localStorage.setItem(FID_NEE, "1"); } catch {}
+    $("faceid-aanbod").hidden = true;
   });
 
   // Eerst het versleutelde plan proberen; bestaat dat niet, dan het open plan.
@@ -1352,14 +1467,18 @@ nav.onder { display: none; }
       if (r.ok) pakket = await r.json();
     } catch {}
     if (pakket && pakket.data) {
+      document.body.dataset.versleuteld = "1";
       $("vergeet").hidden = false;
       if (!wachtwoord) return { slot: "" };
       try {
         return { plan: await ontsleutel(pakket, wachtwoord) };
       } catch {
         wachtwoord = null;
-        try { localStorage.removeItem(WW_SLEUTEL); } catch {}
-        return { slot: "Dit wachtwoord klopt niet. Probeer het opnieuw." };
+        const hadFaceId = !!fidOpgeslagen();
+        try { localStorage.removeItem(WW_SLEUTEL); localStorage.removeItem(FID_SLEUTEL); } catch {}
+        return { slot: hadFaceId
+          ? "Het wachtwoord is veranderd. Vul het nieuwe wachtwoord in; daarna kun je Face ID opnieuw instellen."
+          : "Dit wachtwoord klopt niet. Probeer het opnieuw." };
       }
     }
     const r = await fetch("plan.json?t=" + Date.now(), { cache: "no-store" });
@@ -1374,6 +1493,7 @@ nav.onder { display: none; }
       const uit = await haalPlan();
       if (!uit.plan) { data = null; toonSlot(uit.slot); return; }
       verbergSlot();
+      toonFaceIdAanbod();
       const eersteKeer = !data;
       data = uit.plan;
       data.uren.forEach(u => (u.t = new Date(u.tijd).getTime()));
