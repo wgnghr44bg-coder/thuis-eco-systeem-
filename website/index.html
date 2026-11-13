@@ -243,6 +243,17 @@ tr.nu td { background: var(--color-accent-soft); }
 footer.voet { color: var(--color-muted); font-size: var(--step--1); margin-top: var(--space-xl); padding-top: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); display: grid; gap: var(--space-2xs); }
 footer.voet a { color: var(--color-ink-2); }
 
+/* Slot: de gegevens zijn versleuteld tot het wachtwoord is ingevuld */
+body.vergrendeld section[data-tab], body.vergrendeld nav.tabs, body.vergrendeld nav.onder, body.vergrendeld .bron { display: none !important; }
+.slot { max-width: 30rem; margin: var(--space-xl) auto; display: grid; gap: var(--space-md); }
+.slot form { display: grid; gap: var(--space-sm); }
+.slot .vink { display: flex; align-items: center; gap: var(--space-xs); min-height: 44px; cursor: pointer; }
+.slot .vink input { width: 20px; height: 20px; accent-color: var(--color-accent); }
+.slot .klein { min-height: 1lh; }
+.slot .fouttekst { color: var(--color-warn-ink); }
+.tekstknop { background: none; border: 0; padding: 0; color: var(--color-ink-2); text-decoration: underline; text-decoration-color: var(--color-grid-strong); text-underline-offset: 3px; cursor: pointer; font-size: inherit; min-height: 44px; justify-self: start; }
+.tekstknop:hover { color: var(--color-ink); text-decoration-color: var(--color-ink); }
+
 /* Onderbalk op de telefoon */
 nav.onder { display: none; }
 
@@ -313,6 +324,16 @@ nav.onder { display: none; }
 <main class="wrap">
   <p class="meta" id="bijgewerkt">Plan wordt geladen</p>
   <div class="melding" id="melding" role="status" hidden></div>
+
+  <section class="vlak slot" id="slot" aria-labelledby="t-slot" hidden>
+    <div><h2 id="t-slot">Deze gegevens zijn beveiligd</h2><p class="muted klein" style="margin-top:var(--space-2xs)">Vul het wachtwoord in om de stroomprijzen, de zon en de batterij te zien. Het wachtwoord gaat niet over internet: je browser ontsleutelt de gegevens zelf.</p></div>
+    <form id="slot-form">
+      <div class="veld"><label for="slot-ww">Wachtwoord</label><input id="slot-ww" name="password" type="password" autocomplete="current-password" required style="font-family:var(--font-body)"></div>
+      <label class="vink"><input type="checkbox" id="slot-onthoud" checked> Onthoud op dit apparaat</label>
+      <button class="knop knop--primair" type="submit" id="slot-knop">Openen</button>
+      <span class="klein" id="slot-status" role="status"></span>
+    </form>
+  </section>
 
   <!-- ===================================================== NU -->
   <section data-tab="dashboard" class="paneel" aria-label="Nu">
@@ -486,6 +507,7 @@ nav.onder { display: none; }
   <footer class="voet">
     <span>Prijzen van <a href="https://www.energyzero.nl/" target="_blank" rel="noopener">EnergyZero</a>, weer en zon van <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>. Het plan wordt elk uur bijgewerkt door GitHub Actions.</span>
     <span id="voet-soc"></span>
+    <button class="tekstknop" type="button" id="vergeet" hidden>Wachtwoord vergeten op dit apparaat</button>
   </footer>
 </main>
 
@@ -1264,14 +1286,96 @@ nav.onder { display: none; }
     if (actief === "analyse") { tegels(); gemeten(); tekenPrijs(); tekenPlan(); tekenSoc(); tekenKw(); tabel(); }
   }
 
+  // ------------------------------------------------------------ wachtwoord en ontsleutelen
+  const WW_SLEUTEL = "site-wachtwoord";
+  let wachtwoord = null;
+  try { wachtwoord = localStorage.getItem(WW_SLEUTEL); } catch {}
+  const sleutelCache = new Map();
+  const b64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+
+  // PBKDF2 maakt van het wachtwoord een AES-sleutel; AES-GCM ontsleutelt en
+  // controleert meteen of het wachtwoord klopt (anders een fout).
+  async function ontsleutel(pakket, ww) {
+    const id = `${pakket.zout}:${pakket.iteraties}:${ww}`;
+    let sleutel = sleutelCache.get(id);
+    if (!sleutel) {
+      const basis = await crypto.subtle.importKey("raw", new TextEncoder().encode(ww), "PBKDF2", false, ["deriveKey"]);
+      sleutel = await crypto.subtle.deriveKey(
+        { name: "PBKDF2", hash: "SHA-256", salt: b64(pakket.zout), iterations: pakket.iteraties },
+        basis, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+      sleutelCache.clear();
+      sleutelCache.set(id, sleutel);
+    }
+    const platte = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(pakket.iv) }, sleutel, b64(pakket.data));
+    return JSON.parse(new TextDecoder().decode(platte));
+  }
+
+  function toonSlot(foutmelding) {
+    document.body.classList.add("vergrendeld");
+    $("slot").hidden = false;
+    $("melding").hidden = true;
+    $("bijgewerkt").textContent = "Vergrendeld";
+    $("vergeet").hidden = true;
+    $("slot-status").textContent = foutmelding || "";
+    $("slot-status").classList.toggle("fouttekst", !!foutmelding);
+    if (foutmelding) { $("slot-ww").focus(); $("slot-ww").select(); }
+  }
+  function verbergSlot() {
+    document.body.classList.remove("vergrendeld");
+    $("slot").hidden = true;
+    $("slot-status").textContent = "";
+  }
+
+  $("slot-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const ww = $("slot-ww").value;
+    if (!ww) { toonSlot("Vul het wachtwoord in."); return; }
+    wachtwoord = ww;
+    try { if ($("slot-onthoud").checked) localStorage.setItem(WW_SLEUTEL, ww); else localStorage.removeItem(WW_SLEUTEL); } catch {}
+    $("slot-knop").disabled = true;
+    $("slot-status").classList.remove("fouttekst");
+    $("slot-status").textContent = "Bezig met openen";
+    await laad();
+    $("slot-knop").disabled = false;
+    if (data) $("slot-ww").value = "";
+  });
+  $("vergeet").addEventListener("click", () => {
+    try { localStorage.removeItem(WW_SLEUTEL); } catch {}
+    location.reload();
+  });
+
+  // Eerst het versleutelde plan proberen; bestaat dat niet, dan het open plan.
+  async function haalPlan() {
+    let pakket = null;
+    try {
+      const r = await fetch("plan.enc.json?t=" + Date.now(), { cache: "no-store" });
+      if (r.ok) pakket = await r.json();
+    } catch {}
+    if (pakket && pakket.data) {
+      $("vergeet").hidden = false;
+      if (!wachtwoord) return { slot: "" };
+      try {
+        return { plan: await ontsleutel(pakket, wachtwoord) };
+      } catch {
+        wachtwoord = null;
+        try { localStorage.removeItem(WW_SLEUTEL); } catch {}
+        return { slot: "Dit wachtwoord klopt niet. Probeer het opnieuw." };
+      }
+    }
+    const r = await fetch("plan.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    return { plan: await r.json() };
+  }
+
   async function laad() {
     const knop = $("ververs");
     knop.disabled = true; knop.classList.add("draait");
     try {
-      const r = await fetch("plan.json?t=" + Date.now(), { cache: "no-store" });
-      if (!r.ok) throw new Error(r.status);
+      const uit = await haalPlan();
+      if (!uit.plan) { data = null; toonSlot(uit.slot); return; }
+      verbergSlot();
       const eersteKeer = !data;
-      data = await r.json();
+      data = uit.plan;
       data.uren.forEach(u => (u.t = new Date(u.tijd).getTime()));
       if (eersteKeer) vulFormulier();
       tekenAlles();
