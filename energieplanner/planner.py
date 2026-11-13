@@ -96,6 +96,8 @@ def plan_naar_dict(cfg: Config, plan: Plan, bron: str = "live", soc_bron: str = 
         "kosten_referentie": round(plan.kosten_referentie, 2),
         "besparing": round(plan.besparing, 2),
         "batterij_capaciteit_kwh": cfg.batterij.capaciteit_kwh,
+        "zonnepanelen": {"vermogen_kwp": cfg.zonnepanelen.vermogen_kwp,
+                         "prestatieratio": cfg.zonnepanelen.prestatieratio},
         "uren": [{
             "tijd": u.tijd.isoformat(),
             "prijs": round(u.inkoop, 4),
