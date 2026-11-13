@@ -1,5 +1,5 @@
 // Service worker: laat de app ook zonder internet openen met het laatste plan.
-const CACHE = "energieplan-v5";
+const CACHE = "energieplan-v6";
 const SCHIL = ["./", "index.html", "manifest.webmanifest", "icoon-192.png", "icoon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", e => {

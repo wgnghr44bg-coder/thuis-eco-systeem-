@@ -1308,8 +1308,12 @@ nav.onder { display: none; }
 
   // ------------------------------------------------------------ wachtwoord en ontsleutelen
   const WW_SLEUTEL = "site-wachtwoord";
+  // Na ontgrendelen blijft het wachtwoord in de sessie (tot de app of het
+  // tabblad sluit), zodat verversen niet terug naar het slotscherm gaat.
+  const SESSIE = "site-sessie";
   let wachtwoord = null;
-  try { wachtwoord = localStorage.getItem(WW_SLEUTEL); } catch {}
+  try { wachtwoord = localStorage.getItem(WW_SLEUTEL) || sessionStorage.getItem(SESSIE); } catch {}
+  let autoFaceId = false;
   const sleutelCache = new Map();
   const b64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
@@ -1364,7 +1368,7 @@ nav.onder { display: none; }
     if (data) $("slot-ww").value = "";
   });
   $("vergeet").addEventListener("click", () => {
-    try { [WW_SLEUTEL, FID_SLEUTEL, FID_NEE].forEach(k => localStorage.removeItem(k)); } catch {}
+    try { [WW_SLEUTEL, FID_SLEUTEL, FID_NEE].forEach(k => localStorage.removeItem(k)); sessionStorage.removeItem(SESSIE); } catch {}
     location.reload();
   });
 
@@ -1420,7 +1424,9 @@ nav.onder { display: none; }
     $("faceid-aanbod").hidden = !(kanPasskey && wachtwoord && !fidOpgeslagen() && !nee && document.body.dataset.versleuteld);
   }
 
-  $("faceid-knop").addEventListener("click", async () => {
+  $("faceid-knop").addEventListener("click", () => faceIdOpenen(false));
+  // stil = automatische poging bij openen; mislukt die, dan gewoon de knop tonen
+  async function faceIdOpenen(stil) {
     $("faceid-knop").disabled = true;
     $("slot-status").classList.remove("fouttekst");
     $("slot-status").textContent = "";
@@ -1430,6 +1436,8 @@ nav.onder { display: none; }
       await laad();
     } catch (e) {
       const afgebroken = e && e.name === "NotAllowedError";
+      // Een automatische poging wist nooit iets: dan blijft gewoon de knop staan.
+      if (stil) { $("slot-status").textContent = ""; return; }
       if (!afgebroken) { try { localStorage.removeItem(FID_SLEUTEL); } catch {} }
       toonSlot(afgebroken
         ? "Face ID is afgebroken. Probeer het opnieuw of gebruik het wachtwoord."
@@ -1437,7 +1445,7 @@ nav.onder { display: none; }
     } finally {
       $("faceid-knop").disabled = false;
     }
-  });
+  }
   $("faceid-aan").addEventListener("click", async () => {
     $("faceid-aan").disabled = true;
     try {
@@ -1475,7 +1483,7 @@ nav.onder { display: none; }
       } catch {
         wachtwoord = null;
         const hadFaceId = !!fidOpgeslagen();
-        try { localStorage.removeItem(WW_SLEUTEL); localStorage.removeItem(FID_SLEUTEL); } catch {}
+        try { localStorage.removeItem(WW_SLEUTEL); localStorage.removeItem(FID_SLEUTEL); sessionStorage.removeItem(SESSIE); } catch {}
         return { slot: hadFaceId
           ? "Het wachtwoord is veranderd. Vul het nieuwe wachtwoord in; daarna kun je Face ID opnieuw instellen."
           : "Dit wachtwoord klopt niet. Probeer het opnieuw." };
@@ -1491,8 +1499,13 @@ nav.onder { display: none; }
     knop.disabled = true; knop.classList.add("draait");
     try {
       const uit = await haalPlan();
-      if (!uit.plan) { data = null; toonSlot(uit.slot); return; }
+      if (!uit.plan) {
+        data = null; toonSlot(uit.slot);
+        if (uit.slot === "" && kanPasskey && fidOpgeslagen() && !autoFaceId) { autoFaceId = true; faceIdOpenen(true); }
+        return;
+      }
       verbergSlot();
+      try { if (wachtwoord && document.body.dataset.versleuteld) sessionStorage.setItem(SESSIE, wachtwoord); } catch {}
       toonFaceIdAanbod();
       const eersteKeer = !data;
       data = uit.plan;
