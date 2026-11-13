@@ -177,6 +177,19 @@ bereikbaar (bv. met Nabu Casa), voeg dan onder *Settings → Secrets and variabl
 → Actions* twee secrets toe: `HA_URL` en `HA_TOKEN`. Het plan start dan vanaf de
 echte lading in plaats van 50%.
 
+**Wachtwoord op de website (aanbevolen).** Voeg onder *Settings → Secrets and
+variables → Actions* het secret `SITE_WACHTWOORD` toe (minstens 12 tekens; neem
+bijvoorbeeld vier losse woorden). De GitHub Action versleutelt het plan dan elk
+uur met dat wachtwoord (PBKDF2 + AES-GCM) en zet alleen `plan.enc.json` online.
+De website vraagt om het wachtwoord en ontsleutelt de gegevens in je eigen
+browser; het wachtwoord gaat nooit over internet. Met "Onthoud op dit apparaat"
+hoef je het maar één keer in te vullen. Wachtwoord veranderen = het secret
+aanpassen; na de volgende run werkt alleen het nieuwe wachtwoord.
+
+Wat het wachtwoord níet afschermt: de code in deze repository (ook
+`config.toml`) en de lege pagina met het wachtwoordvak. Zonder het secret staat
+het plan onversleuteld online en geeft de Action een waarschuwing.
+
 > Let op: de repository is openbaar, dus de website is dat ook. Er staan geen
 > adressen, tokens of namen op, alleen prijzen en het plan per uur.
 

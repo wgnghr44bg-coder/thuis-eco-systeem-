@@ -1,5 +1,5 @@
 // Service worker: laat de app ook zonder internet openen met het laatste plan.
-const CACHE = "energieplan-v3";
+const CACHE = "energieplan-v4";
 const SCHIL = ["./", "index.html", "manifest.webmanifest", "icoon-192.png", "icoon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -19,7 +19,7 @@ self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return;
-  const sleutel = url.pathname.endsWith("plan.json") ? new Request(url.origin + url.pathname) : e.request;
+  const sleutel = /plan(\.enc)?\.json$/.test(url.pathname) ? new Request(url.origin + url.pathname) : e.request;
   e.respondWith(
     fetch(e.request)
       .then(antwoord => {
@@ -29,6 +29,6 @@ self.addEventListener("fetch", e => {
         }
         return antwoord;
       })
-      .catch(() => caches.match(sleutel).then(r => r || caches.match("index.html")))
+      .catch(() => caches.match(sleutel).then(r => r || (e.request.mode === "navigate" ? caches.match("index.html") : Response.error())))
   );
 });

@@ -29,11 +29,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Pakketten installeren (Growatt-koppeling en versleuteling)
+        run: pip install --quiet "growattServer>=1.5,<2" "cryptography>=42"
+
       - name: Tests
         run: python -m unittest
-
-      - name: Growatt-koppeling installeren
-        run: pip install --quiet "growattServer>=1.5,<2"
 
       - name: Plan maken
         env:
@@ -53,6 +53,19 @@ jobs:
           CONFIG=config.toml
           [ -f "$CONFIG" ] || CONFIG=config.voorbeeld.toml
           python -m energieplanner json --config "$CONFIG" --uitvoer _site/plan.json
+
+      - name: Plan versleutelen met wachtwoord
+        env:
+          # Repository secret (zie README). Zonder dit secret staat het plan
+          # onversleuteld en voor iedereen leesbaar online.
+          SITE_WACHTWOORD: ${{ secrets.SITE_WACHTWOORD }}
+        run: |
+          if [ -n "$SITE_WACHTWOORD" ]; then
+            python -m energieplanner.versleutel _site/plan.json _site/plan.enc.json
+            rm _site/plan.json
+          else
+            echo "::warning::Geen SITE_WACHTWOORD ingesteld: plan.json staat onversleuteld online."
+          fi
 
       - uses: actions/configure-pages@v5
 
